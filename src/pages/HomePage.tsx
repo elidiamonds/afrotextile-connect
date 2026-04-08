@@ -67,7 +67,7 @@ const HomePage = () => {
               <Link to="/shop" key={col.title} className="group relative aspect-square overflow-hidden rounded-sm">
                 <img src={col.img} alt={col.title} loading="lazy" width={800} height={800} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                 <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/20 to-transparent" />
-                <div className="absolute bottom-6 left-6 right-6">
+                <div className="absolute bottom-6 left-6 right-6 text-center">
                   <h3 className="font-serif text-2xl font-bold text-foreground mb-1">{col.title}</h3>
                   <p className="text-sm text-muted-foreground font-sans">{col.subtitle}</p>
                 </div>
