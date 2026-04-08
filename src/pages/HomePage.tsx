@@ -3,7 +3,7 @@ import { ArrowRight, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ProductCard from "@/components/ProductCard";
 import { products, vendors } from "@/data/mock";
-import heroImg from "@/assets/hero-model.jpg";
+import homeBg from "@/assets/home-bg.jpg";
 import col1 from "@/assets/collection-1.jpg";
 import col2 from "@/assets/collection-2.jpg";
 import col3 from "@/assets/collection-3.jpg";
@@ -17,9 +17,13 @@ const HomePage = () => {
   return (
     <div className="min-h-screen">
       {/* Hero */}
-      <section className="relative min-h-[90vh] flex items-center bg-pattern-african">
-        <div className="container mx-auto px-4 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center pt-16">
-          <div className="space-y-8 animate-fade-up">
+      <section
+        className="relative min-h-[90vh] flex items-center justify-center bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: `url(${homeBg})` }}
+      >
+        <div className="absolute inset-0 bg-background/70" />
+        <div className="container mx-auto px-4 relative z-10 text-center pt-16">
+          <div className="space-y-8 animate-fade-up max-w-2xl mx-auto">
             <div className="inline-block">
               <span className="font-sans text-xs uppercase tracking-[0.3em] text-primary border border-primary/30 px-4 py-1.5 rounded-full">
                 Global African Fashion
@@ -32,22 +36,16 @@ const HomePage = () => {
               <br />
               Couture
             </h1>
-            <p className="text-lg text-muted-foreground max-w-md font-sans leading-relaxed">
+            <p className="text-lg text-muted-foreground max-w-md mx-auto font-sans leading-relaxed">
               Discover bold African prints, luxurious textures, and modern silhouettes from the continent's finest designers.
             </p>
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap justify-center gap-4">
               <Button asChild variant="hero" size="lg" className="text-base px-8">
                 <Link to="/shop">Shop Collection <ArrowRight className="ml-2 w-4 h-4" /></Link>
               </Button>
               <Button asChild variant="heroOutline" size="lg" className="text-base px-8">
                 <Link to="/about">Our Story</Link>
               </Button>
-            </div>
-          </div>
-          <div className="relative animate-fade-in hidden lg:block">
-            <div className="relative rounded-sm overflow-hidden shadow-2xl shadow-primary/10">
-              <img src={heroImg} alt="African fashion model in Ankara blazer" width={1024} height={1280} className="w-full h-auto" />
-              <div className="absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent" />
             </div>
           </div>
         </div>
@@ -69,7 +67,7 @@ const HomePage = () => {
               <Link to="/shop" key={col.title} className="group relative aspect-square overflow-hidden rounded-sm">
                 <img src={col.img} alt={col.title} loading="lazy" width={800} height={800} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                 <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/20 to-transparent" />
-                <div className="absolute bottom-6 left-6 right-6">
+                <div className="absolute bottom-6 left-6 right-6 text-center">
                   <h3 className="font-serif text-2xl font-bold text-foreground mb-1">{col.title}</h3>
                   <p className="text-sm text-muted-foreground font-sans">{col.subtitle}</p>
                 </div>
@@ -82,19 +80,19 @@ const HomePage = () => {
       {/* Trending */}
       <section className="py-24 bg-card">
         <div className="container mx-auto px-4">
-          <div className="flex items-end justify-between mb-12">
-            <div className="space-y-2">
-              <span className="font-sans text-xs uppercase tracking-[0.3em] text-primary">Popular Now</span>
-              <h2 className="text-3xl md:text-4xl font-serif font-bold text-foreground">Trending Pieces</h2>
-            </div>
-            <Link to="/shop" className="hidden md:flex items-center gap-2 text-sm font-sans text-primary hover:underline">
-              View All <ArrowRight className="w-4 h-4" />
-            </Link>
+          <div className="text-center mb-12 space-y-2">
+            <span className="font-sans text-xs uppercase tracking-[0.3em] text-primary">Popular Now</span>
+            <h2 className="text-3xl md:text-4xl font-serif font-bold text-foreground">Trending Pieces</h2>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {trending.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
+          </div>
+          <div className="text-center mt-8">
+            <Link to="/shop" className="inline-flex items-center gap-2 text-sm font-sans text-primary hover:underline">
+              View All <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
         </div>
       </section>
@@ -102,19 +100,19 @@ const HomePage = () => {
       {/* New Arrivals */}
       <section className="py-24">
         <div className="container mx-auto px-4">
-          <div className="flex items-end justify-between mb-12">
-            <div className="space-y-2">
-              <span className="font-sans text-xs uppercase tracking-[0.3em] text-primary">Just Landed</span>
-              <h2 className="text-3xl md:text-4xl font-serif font-bold text-foreground">New Arrivals</h2>
-            </div>
-            <Link to="/shop" className="hidden md:flex items-center gap-2 text-sm font-sans text-primary hover:underline">
-              View All <ArrowRight className="w-4 h-4" />
-            </Link>
+          <div className="text-center mb-12 space-y-2">
+            <span className="font-sans text-xs uppercase tracking-[0.3em] text-primary">Just Landed</span>
+            <h2 className="text-3xl md:text-4xl font-serif font-bold text-foreground">New Arrivals</h2>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
             {newArrivals.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
+          </div>
+          <div className="text-center mt-8">
+            <Link to="/shop" className="inline-flex items-center gap-2 text-sm font-sans text-primary hover:underline">
+              View All <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
         </div>
       </section>
