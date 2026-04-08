@@ -17,9 +17,13 @@ const HomePage = () => {
   return (
     <div className="min-h-screen">
       {/* Hero */}
-      <section className="relative min-h-[90vh] flex items-center bg-pattern-african">
-        <div className="container mx-auto px-4 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center pt-16">
-          <div className="space-y-8 animate-fade-up">
+      <section
+        className="relative min-h-[90vh] flex items-center justify-center bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: `url(${homeBg})` }}
+      >
+        <div className="absolute inset-0 bg-background/70" />
+        <div className="container mx-auto px-4 relative z-10 text-center pt-16">
+          <div className="space-y-8 animate-fade-up max-w-2xl mx-auto">
             <div className="inline-block">
               <span className="font-sans text-xs uppercase tracking-[0.3em] text-primary border border-primary/30 px-4 py-1.5 rounded-full">
                 Global African Fashion
@@ -32,22 +36,16 @@ const HomePage = () => {
               <br />
               Couture
             </h1>
-            <p className="text-lg text-muted-foreground max-w-md font-sans leading-relaxed">
+            <p className="text-lg text-muted-foreground max-w-md mx-auto font-sans leading-relaxed">
               Discover bold African prints, luxurious textures, and modern silhouettes from the continent's finest designers.
             </p>
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap justify-center gap-4">
               <Button asChild variant="hero" size="lg" className="text-base px-8">
                 <Link to="/shop">Shop Collection <ArrowRight className="ml-2 w-4 h-4" /></Link>
               </Button>
               <Button asChild variant="heroOutline" size="lg" className="text-base px-8">
                 <Link to="/about">Our Story</Link>
               </Button>
-            </div>
-          </div>
-          <div className="relative animate-fade-in hidden lg:block">
-            <div className="relative rounded-sm overflow-hidden shadow-2xl shadow-primary/10">
-              <img src={heroImg} alt="African fashion model in Ankara blazer" width={1024} height={1280} className="w-full h-auto" />
-              <div className="absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent" />
             </div>
           </div>
         </div>
