@@ -3,7 +3,7 @@ import { ArrowRight, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ProductCard from "@/components/ProductCard";
 import { products, vendors } from "@/data/mock";
-import heroImg from "@/assets/hero-model.jpg";
+import homeBg from "@/assets/home-bg.jpg";
 import col1 from "@/assets/collection-1.jpg";
 import col2 from "@/assets/collection-2.jpg";
 import col3 from "@/assets/collection-3.jpg";
