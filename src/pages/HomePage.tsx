@@ -80,19 +80,19 @@ const HomePage = () => {
       {/* Trending */}
       <section className="py-24 bg-card">
         <div className="container mx-auto px-4">
-          <div className="flex items-end justify-between mb-12">
-            <div className="space-y-2">
-              <span className="font-sans text-xs uppercase tracking-[0.3em] text-primary">Popular Now</span>
-              <h2 className="text-3xl md:text-4xl font-serif font-bold text-foreground">Trending Pieces</h2>
-            </div>
-            <Link to="/shop" className="hidden md:flex items-center gap-2 text-sm font-sans text-primary hover:underline">
-              View All <ArrowRight className="w-4 h-4" />
-            </Link>
+          <div className="text-center mb-12 space-y-2">
+            <span className="font-sans text-xs uppercase tracking-[0.3em] text-primary">Popular Now</span>
+            <h2 className="text-3xl md:text-4xl font-serif font-bold text-foreground">Trending Pieces</h2>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {trending.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
+          </div>
+          <div className="text-center mt-8">
+            <Link to="/shop" className="inline-flex items-center gap-2 text-sm font-sans text-primary hover:underline">
+              View All <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
         </div>
       </section>
