@@ -52,7 +52,7 @@ const HomePage = () => {
         </div>
 
         <div className="container mx-auto px-4 relative z-10 pt-16">
-          <div className="max-w-2xl space-y-8 animate-fade-up">
+          <div className="max-w-2xl mx-auto text-center space-y-8 animate-fade-up">
             <span className="inline-block font-sans text-xs uppercase tracking-[0.3em] text-primary border border-primary/30 px-4 py-1.5 rounded-full">
               Africa's Premier Fashion Marketplace
             </span>
@@ -63,11 +63,11 @@ const HomePage = () => {
               <br />
               Fashion.
             </h1>
-            <p className="text-lg text-muted-foreground max-w-md font-sans leading-relaxed">
+            <p className="text-lg text-muted-foreground max-w-md mx-auto font-sans leading-relaxed">
               From Lagos ateliers to Cape Town boutiques — shop from thousands of verified African designers, fabric merchants, and artisans on one trusted marketplace.
             </p>
 
-            <form onSubmit={handleSearch} className="relative max-w-lg">
+            <form onSubmit={handleSearch} className="relative max-w-lg mx-auto">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type="text"
@@ -81,7 +81,7 @@ const HomePage = () => {
               </Button>
             </form>
 
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-4 justify-center">
               <Button asChild variant="hero" size="lg" className="text-base px-8">
                 <Link to="/shop">Explore Marketplace <ArrowRight className="ml-2 w-4 h-4" /></Link>
               </Button>
@@ -90,7 +90,7 @@ const HomePage = () => {
               </Button>
             </div>
 
-            <div className="flex flex-wrap gap-6 pt-4 text-xs text-muted-foreground font-sans">
+            <div className="flex flex-wrap gap-6 pt-4 justify-center text-xs text-muted-foreground font-sans">
               <span className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary" /> Verified Vendors</span>
               <span className="flex items-center gap-2"><Truck className="w-4 h-4 text-primary" /> Global Shipping</span>
               <span className="flex items-center gap-2"><Globe className="w-4 h-4 text-primary" /> 40+ Countries</span>
