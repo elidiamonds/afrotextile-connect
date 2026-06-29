@@ -1,9 +1,10 @@
-# [Project name]
+# Afrotextile
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A global African fashion marketplace where users can discover and shop bold African prints, luxurious textures, and modern silhouettes from independent African designers.
 
 ## Run & Operate
 
+- `pnpm --filter @workspace/afrotextile run dev` — run the frontend (auto-assigned port)
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
@@ -14,6 +15,7 @@ _Replace the heading above with the project's name, and this line with one sente
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
+- Frontend: React + Vite + Tailwind v3 (postcss) + shadcn/ui
 - API: Express 5
 - DB: PostgreSQL + Drizzle ORM
 - Validation: Zod (`zod/v4`), `drizzle-zod`
@@ -22,15 +24,28 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/afrotextile/` — React + Vite frontend (main app)
+- `artifacts/api-server/` — Express API server
+- `lib/db/src/schema/` — Drizzle DB schema
+- `lib/api-spec/openapi.yaml` — OpenAPI spec (source of truth for API contracts)
+- `artifacts/afrotextile/src/index.css` — theme/CSS variables (dark African palette)
+- `artifacts/afrotextile/tailwind.config.ts` — Tailwind v3 config with custom colors
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Pure frontend app — no Supabase, no auth, no backend data calls; all data is mocked in `src/data/mock.ts`
+- Tailwind v3 with PostCSS (not @tailwindcss/vite) — required because the original Lovable app used Tailwind v3 with `tailwindcss-animate` plugin
+- react-router-dom v6 for routing (from the original Lovable app)
+- Dark African luxury theme: warm-black background, gold primary, terracotta accent, Playfair Display serif headings
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Home page with hero, featured collections, vendor highlights
+- Shop page with product grid and filtering
+- Product detail page
+- Cart page with wishlist support
+- About and Contact pages
+- Vendor profile pages and vendor onboarding flow
 
 ## User preferences
 
@@ -38,7 +53,9 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Tailwind v3 uses `postcss.config.js` + `tailwind.config.ts` — do NOT switch to `@tailwindcss/vite` plugin
+- The vite.config.ts wires PostCSS plugins inline (tailwindcss + autoprefixer) since @tailwindcss/vite is removed
+- Do NOT run `pnpm dev` at workspace root — use `pnpm --filter @workspace/afrotextile run dev` instead
 
 ## Pointers
 

@@ -1,0 +1,109 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 30 15% 7%;
+    --foreground: 40 30% 92%;
+
+    --card: 30 12% 11%;
+    --card-foreground: 40 30% 92%;
+
+    --popover: 30 12% 11%;
+    --popover-foreground: 40 30% 92%;
+
+    --primary: 38 65% 50%;
+    --primary-foreground: 30 15% 7%;
+
+    --secondary: 20 30% 18%;
+    --secondary-foreground: 40 30% 92%;
+
+    --muted: 25 15% 15%;
+    --muted-foreground: 30 15% 55%;
+
+    --accent: 15 55% 45%;
+    --accent-foreground: 40 30% 95%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 40 30% 95%;
+
+    --border: 30 10% 20%;
+    --input: 30 10% 20%;
+    --ring: 38 65% 50%;
+
+    --radius: 0.375rem;
+
+    --sidebar-background: 30 12% 9%;
+    --sidebar-foreground: 40 30% 92%;
+    --sidebar-primary: 38 65% 50%;
+    --sidebar-primary-foreground: 30 15% 7%;
+    --sidebar-accent: 25 15% 15%;
+    --sidebar-accent-foreground: 40 30% 92%;
+    --sidebar-border: 30 10% 20%;
+    --sidebar-ring: 38 65% 50%;
+
+    /* Custom tokens */
+    --gold: 38 65% 50%;
+    --gold-light: 38 55% 65%;
+    --terracotta: 15 55% 45%;
+    --ivory: 40 30% 92%;
+    --warm-black: 30 15% 7%;
+    --earth: 25 20% 25%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif;
+  }
+}
+
+@layer utilities {
+  .text-gradient-gold {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(38, 65%, 50%), hsl(38, 55%, 65%), hsl(38, 65%, 50%));
+  }
+
+  .bg-gradient-gold {
+    background-image: linear-gradient(135deg, hsl(38, 65%, 50%), hsl(38, 55%, 65%));
+  }
+
+  .bg-pattern-african {
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c8963e' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  .animate-fade-up {
+    animation: fadeUp 0.6s ease-out forwards;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.8s ease-out forwards;
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

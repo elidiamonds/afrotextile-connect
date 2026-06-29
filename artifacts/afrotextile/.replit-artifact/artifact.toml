@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Afrotextile"
+version = "1.0.0"
+id = "artifacts/afrotextile"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20814
+
+[services.development]
+run = "pnpm --filter @workspace/afrotextile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/afrotextile", "run", "build" ]
+publicDir = "artifacts/afrotextile/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20814"
+BASE_PATH = "/"
