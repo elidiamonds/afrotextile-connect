@@ -26,6 +26,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "cart", selected: "cart.fill" }} />
         <Label>Cart</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="more">
+        <Icon sf={{ default: "ellipsis.circle", selected: "ellipsis.circle.fill" }} />
+        <Label>More</Label>
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
@@ -102,6 +106,18 @@ function ClassicTabLayout() {
               <SymbolView name={focused ? "cart.fill" : "cart"} tintColor={color} size={24} />
             ) : (
               <Ionicons name={focused ? "cart" : "cart-outline"} size={24} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="more"
+        options={{
+          title: "More",
+          tabBarIcon: ({ color, focused }) =>
+            isIOS ? (
+              <SymbolView name={focused ? "ellipsis.circle.fill" : "ellipsis.circle"} tintColor={color} size={24} />
+            ) : (
+              <Ionicons name={focused ? "ellipsis-horizontal-circle" : "ellipsis-horizontal-circle-outline"} size={24} color={color} />
             ),
         }}
       />

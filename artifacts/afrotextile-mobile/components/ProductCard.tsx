@@ -9,10 +9,9 @@ import { useWishlist } from "@/contexts/WishlistContext";
 
 interface ProductCardProps {
   product: Product;
-  width: number;
 }
 
-export function ProductCard({ product, width }: ProductCardProps) {
+export function ProductCard({ product }: ProductCardProps) {
   const colors = useColors();
   const { toggleWishlist, isWishlisted } = useWishlist();
   const wishlisted = isWishlisted(product.id);
@@ -24,13 +23,13 @@ export function ProductCard({ product, width }: ProductCardProps) {
 
   return (
     <Pressable
-      style={[styles.card, { width, backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
+      style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
       onPress={() => router.push(`/product/${product.id}`)}
     >
-      <View style={[styles.imageContainer, { borderRadius: colors.radius }]}>
+      <View style={[styles.imageContainer, { borderTopLeftRadius: colors.radius, borderTopRightRadius: colors.radius }]}>
         <Image
           source={productImages[product.imageKey]}
-          style={[styles.image, { borderRadius: colors.radius }]}
+          style={styles.image}
           resizeMode="cover"
         />
         {(product.isNew || product.isTrending) && (
@@ -76,6 +75,7 @@ export function ProductCard({ product, width }: ProductCardProps) {
 
 const styles = StyleSheet.create({
   card: {
+    flex: 1,
     marginBottom: 16,
     borderWidth: 1,
     overflow: "hidden",

@@ -116,9 +116,7 @@ export default function ShopScreen() {
             </Text>
           </View>
         }
-        renderItem={({ item }) => {
-          return <ProductCard product={item} width={(CARD_GAP * 2 + 32 - CARD_GAP) / 2} />;
-        }}
+        renderItem={({ item }) => <ProductCard product={item} />}
       />
     </View>
   );
@@ -171,7 +169,6 @@ const styles = StyleSheet.create({
   },
   row: {
     gap: CARD_GAP,
-    justifyContent: "space-between",
   },
   empty: {
     alignItems: "center",

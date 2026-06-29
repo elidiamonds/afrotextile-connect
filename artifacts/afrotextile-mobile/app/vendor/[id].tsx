@@ -93,9 +93,7 @@ export default function VendorScreen() {
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No products yet</Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <ProductCard product={item} width={(CARD_GAP * 2 + 32 - CARD_GAP) / 2} />
-        )}
+        renderItem={({ item }) => <ProductCard product={item} />}
       />
     </View>
   );
@@ -132,8 +130,8 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 15, fontWeight: "700" as const },
   statLabel: { fontSize: 12 },
   statDivider: { width: 1, height: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: "600" as const, marginBottom: 4, paddingHorizontal: 0 },
-  row: { gap: CARD_GAP, justifyContent: "space-between" },
+  sectionTitle: { fontSize: 18, fontWeight: "600" as const, marginBottom: 4 },
+  row: { gap: CARD_GAP },
   empty: { alignItems: "center", paddingTop: 40, gap: 12 },
   emptyText: { fontSize: 15 },
 });
