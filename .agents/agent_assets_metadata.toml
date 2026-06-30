@@ -1,8 +1,25 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "foEQMC2xIuE2TZFjDfxyO"
 uri = "file://artifacts/afrotextile-mobile/assets/images/icon.png"
 type = "image"
 title = "generated_image"
+
+[[generated]]
+id = "_o7ohEG45wKsXSLr2Ck9a"
+uri = "file://artifacts/afrotextile-promo/public/images/texture-pattern.png"
+type = "image"
+title = "Abstract African textile pattern"
+
+[[generated]]
+id = "Bsn6Z8bEQeIpYj8oY4mrb"
+uri = "file://artifacts/afrotextile-promo/public/images/texture-woven.png"
+type = "image"
+title = "Rich woven fabric close-up"
+
+[[outputs]]
+id = "9VyVt5FBifEfIQ_MFWcfY"
+uri = "file://artifacts/afrotextile-promo/public/audio/bg_music.mp3"
+type = "audio"
+title = "afrotextile promo music 35s"
