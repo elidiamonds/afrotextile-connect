@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
-import { ShoppingBag, Heart, Menu, X, Search } from "lucide-react";
+import { ShoppingBag, Heart, Menu, X, Search, Sparkles } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { useState } from "react";
 
 const navLinks = [
   { label: "Shop", to: "/shop" },
+  { label: "Style Lab", to: "/style-lab" },
   { label: "Collections", to: "/shop" },
   { label: "About", to: "/about" },
   { label: "Contact", to: "/contact" },
@@ -37,6 +38,9 @@ const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-4">
+          <Link to="/style-lab" data-testid="link-style-lab-nav" className="hidden items-center gap-1.5 text-xs font-sans uppercase tracking-widest text-primary transition-colors hover:text-foreground lg:flex">
+            <Sparkles className="h-3.5 w-3.5" /> Style Lab
+          </Link>
           <Link to="/shop" className="text-foreground hover:text-primary transition-colors">
             <Search className="w-5 h-5" />
           </Link>

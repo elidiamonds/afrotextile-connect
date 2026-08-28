@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, Search, Star, ShieldCheck, Truck, Globe, BadgeCheck, Quote } from "lucide-react";
+import { ArrowRight, Search, Star, ShieldCheck, Truck, Globe, BadgeCheck, Quote, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ProductCard from "@/components/ProductCard";
 import { products, vendors, testimonials } from "@/data/mock";
@@ -8,10 +8,10 @@ import heroMain from "@/assets/editorial-hero.jpg";
 import catFabrics from "@/assets/cat-fabrics.jpg";
 import catMen from "@/assets/editorial-men.jpg";
 import catWomen from "@/assets/editorial-women.jpg";
-import catAccessories from "@/assets/editorial-craft.jpg";
 import catFootwear from "@/assets/cat-footwear.jpg";
-import catCultural from "@/assets/editorial-craft.jpg";
-import catRtw from "@/assets/editorial-women.jpg";
+import editorialRunway from "@/assets/editorial-runway.jpg";
+import editorialAccessories from "@/assets/editorial-accessories.jpg";
+import editorialLookbook from "@/assets/editorial-lookbook.jpg";
 
 const HomePage = () => {
   const trending = products.filter((p) => p.isTrending);
@@ -29,10 +29,10 @@ const HomePage = () => {
     { img: catFabrics, title: "Fabrics", count: "320+ items" },
     { img: catWomen, title: "Women's Fashion", count: "1,240+ items" },
     { img: catMen, title: "Men's Fashion", count: "680+ items" },
-    { img: catAccessories, title: "Accessories", count: "490+ items" },
+    { img: editorialAccessories, title: "Accessories", count: "490+ items" },
     { img: catFootwear, title: "Footwear", count: "210+ items" },
-    { img: catCultural, title: "Cultural Fashion", count: "180+ items" },
-    { img: catRtw, title: "Ready-to-Wear", count: "560+ items" },
+    { img: editorialRunway, title: "Cultural Fashion", count: "180+ items" },
+    { img: editorialLookbook, title: "Ready-to-Wear", count: "560+ items" },
   ];
 
   const regionCards = [
@@ -120,6 +120,40 @@ const HomePage = () => {
                 </div>
               </Link>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-border bg-card py-20 md:py-24">
+        <div className="container mx-auto grid gap-10 px-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <div className="max-w-xl">
+            <div className="mb-5 flex items-center gap-3">
+              <span className="h-px w-10 bg-primary" />
+              <span className="font-sans text-xs uppercase tracking-[0.3em] text-primary">New / Style Lab</span>
+            </div>
+            <h2 className="text-balance text-4xl font-serif font-medium leading-[1.02] text-foreground md:text-6xl">
+              Your next look is already in the archive.
+            </h2>
+            <p className="mt-6 max-w-md font-sans text-base leading-relaxed text-muted-foreground">
+              Choose your occasion and your energy. Style Lab makes a shoppable edit from the people, fabrics, and silhouettes already here.
+            </p>
+            <Button asChild variant="hero" size="lg" className="mt-8">
+              <Link to="/style-lab">Build a three-piece look <Sparkles className="ml-1 h-4 w-4" /></Link>
+            </Button>
+          </div>
+          <div className="grid grid-cols-[1.05fr_0.95fr] gap-3">
+            <div className="relative aspect-[4/5] overflow-hidden">
+              <img src={editorialRunway} alt="Contemporary African fashion on a gallery runway" loading="lazy" width={1024} height={1024} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
+              <span className="absolute bottom-4 left-4 bg-background/85 px-3 py-2 font-sans text-[10px] uppercase tracking-[0.2em] text-primary backdrop-blur">The moving archive</span>
+            </div>
+            <div className="grid gap-3">
+              <div className="relative aspect-[4/3] overflow-hidden">
+                <img src={editorialLookbook} alt="Editorial lookbook portrait in indigo and cream" loading="lazy" width={1024} height={1024} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
+              </div>
+              <div className="relative aspect-[4/3] overflow-hidden">
+                <img src={editorialAccessories} alt="Woven accessory editorial still life" loading="lazy" width={1024} height={1024} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
+              </div>
+            </div>
           </div>
         </div>
       </section>
