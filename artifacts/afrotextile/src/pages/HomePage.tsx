@@ -4,14 +4,14 @@ import { ArrowRight, Search, Star, ShieldCheck, Truck, Globe, BadgeCheck, Quote 
 import { Button } from "@/components/ui/button";
 import ProductCard from "@/components/ProductCard";
 import { products, vendors, testimonials } from "@/data/mock";
-import heroMain from "@/assets/hero-main.jpg";
+import heroMain from "@/assets/editorial-hero.jpg";
 import catFabrics from "@/assets/cat-fabrics.jpg";
-import catMen from "@/assets/cat-men.jpg";
-import catWomen from "@/assets/cat-women.jpg";
-import catAccessories from "@/assets/cat-accessories.jpg";
+import catMen from "@/assets/editorial-men.jpg";
+import catWomen from "@/assets/editorial-women.jpg";
+import catAccessories from "@/assets/editorial-craft.jpg";
 import catFootwear from "@/assets/cat-footwear.jpg";
-import catCultural from "@/assets/cat-cultural.jpg";
-import catRtw from "@/assets/cat-rtw.jpg";
+import catCultural from "@/assets/editorial-craft.jpg";
+import catRtw from "@/assets/editorial-women.jpg";
 
 const HomePage = () => {
   const trending = products.filter((p) => p.isTrending);
@@ -46,7 +46,7 @@ const HomePage = () => {
     <div className="min-h-screen">
       <section className="relative min-h-[92vh] flex items-center overflow-hidden">
         <div className="absolute inset-0">
-          <img src={heroMain} alt="" width={1600} height={1200} className="w-full h-full object-cover object-center" />
+          <img src={heroMain} alt="Model wearing a contemporary African print ensemble" width={1600} height={1200} className="w-full h-full object-cover object-center" />
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/85 to-background/40" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/30" />
         </div>

@@ -7,9 +7,9 @@ import p5 from "@/assets/product-5.jpg";
 import p6 from "@/assets/product-6.jpg";
 import p7 from "@/assets/product-7.jpg";
 import p8 from "@/assets/product-8.jpg";
-import v1img from "@/assets/vendor-1.jpg";
-import v2img from "@/assets/vendor-2.jpg";
-import v3img from "@/assets/vendor-3.jpg";
+import v1img from "@/assets/editorial-women.jpg";
+import v2img from "@/assets/editorial-men.jpg";
+import v3img from "@/assets/editorial-craft.jpg";
 
 export const products: Product[] = [
   {

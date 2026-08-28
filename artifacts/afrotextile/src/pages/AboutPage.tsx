@@ -1,4 +1,4 @@
-import col2 from "@/assets/collection-2.jpg";
+import col2 from "@/assets/editorial-women.jpg";
 
 const AboutPage = () => {
   return (
