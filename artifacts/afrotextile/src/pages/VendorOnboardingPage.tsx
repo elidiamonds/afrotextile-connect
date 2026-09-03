@@ -31,8 +31,8 @@ const VendorOnboardingPage = () => {
             Join thousands of African designers, fabric merchants, and artisans growing their business on Afrotextile — Africa's premier fashion marketplace.
           </p>
           <div className="flex flex-wrap gap-4 justify-center pt-4">
-            <Button variant="hero" size="lg" className="text-base px-8">
-              Start Selling <ArrowRight className="ml-2 w-4 h-4" />
+            <Button asChild variant="hero" size="lg" className="text-base px-8">
+              <Link to="/vendor/dashboard">Start Selling <ArrowRight className="ml-2 w-4 h-4" /></Link>
             </Button>
             <Button asChild variant="heroOutline" size="lg" className="text-base px-8">
               <Link to="/contact">Talk to Sales</Link>
