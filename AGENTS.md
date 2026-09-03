@@ -19,6 +19,12 @@ A pnpm workspace monorepo. The user-facing app is the **frontend** at `artifacts
 - The `@replit/*` vite plugins load only when `REPL_ID` is set; they are not loaded in Base44 (correct).
 - Node 24 is required (matches `.replit` `modules = ["nodejs-24"]`). pnpm is activated via corepack (`pnpm@9`).
 
+## Pinterest trend inspiration (server-side fetch)
+- `artifacts/afrotextile/pinterest-trends-plugin.ts` is a Vite dev-server plugin (registered in `vite.config.ts`) that handles `GET /api/trends?feed=<user/board>`. It fetches `https://www.pinterest.com/<feed>.rss` server-side (no CORS), parses `<item>`s, and returns JSON `{items:[{title,image,link,date}]}`. 10-min in-memory cache.
+- Pinterest board RSS pins often have **empty `<title>`** and HTML-entity-encoded `<description>` (quotes are `&quot;`); the parser decodes entities first and falls back to `"Pinterest inspiration"` when the title is blank. Image URL is extracted from the decoded `<img src>`.
+- Confirmed working feeds: `pinterest/fashion` (Fashion board), `pinterest/feed` (official user feed). Many board slugs 404 — only valid public boards return data.
+- Frontend page: `src/pages/TrendsPage.tsx` at route `/trends` (nav link "Trends"). No backend service needed — the Vite dev server itself serves the API.
+
 ## Verifying it works
 - `curl -sf http://localhost:3000/` returns the HTML with the Vite client injected.
 - `curl -sf -H "Host: external-preview.example.com" http://localhost:3000/` also returns the app (Vite `allowedHosts: true`).
