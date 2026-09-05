@@ -7,7 +7,7 @@ interface PinItem {
   date: string;
 }
 
-// Curated Nigerian / African fashion boards on Pinterest
+// Curated Nigerian fashion boards on Pinterest
 const NIGERIAN_FEEDS = [
   "bukkysun/ankara-styles",
   "michelleogu4857/nigerian-fashion",
@@ -15,6 +15,15 @@ const NIGERIAN_FEEDS = [
   "evylina/nigerian-fashion",
   "biskhid6/ankara-styles",
   "blesseddivas1/ankara-fashion",
+];
+
+// Broader pan-African fashion boards (prints, dresses, modern African style)
+const AFRICAN_FEEDS = [
+  "georginakquaye/african-dresses",
+  "khozatina1/african-dress",
+  "trini2hearttt/african-print-dresses",
+  "newunderthesun/african-print-dresses",
+  "ashantigoddess7/african-print",
 ];
 
 const cache = new Map<string, { data: PinItem[]; at: number }>();
@@ -42,7 +51,7 @@ function parseRss(xml: string): PinItem[] {
     const date = (block.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1] ?? "").trim();
     const desc = decodeEntities(block.match(/<description>([\s\S]*?)<\/description>/)?.[1] ?? "");
     const image = desc.match(/src="(https:\/\/i\.pinimg\.com[^"]+)"/)?.[1] ?? "";
-    if (image) items.push({ title: title || "Nigerian fashion inspiration", image, link, date });
+    if (image) items.push({ title: title || "African fashion inspiration", image, link, date });
   }
   return items;
 }
@@ -65,22 +74,38 @@ async function fetchNigerian(): Promise<PinItem[]> {
   });
 }
 
+async function fetchAfrican(): Promise<PinItem[]> {
+  const results = await Promise.all(AFRICAN_FEEDS.map(fetchFeed));
+  const seen = new Set<string>();
+  return results.flat().filter((it) => {
+    if (seen.has(it.image)) return false;
+    seen.add(it.image);
+    return true;
+  });
+}
+
 export function pinterestTrendsPlugin(): Plugin {
   return {
     name: "pinterest-trends",
     configureServer(server) {
       // Automation: warm the Nigerian trends cache on startup and re-pull on a
       // schedule so product listings always reflect the latest inspiration.
-      const warmNigerian = async () => {
+      const warmCaches = async () => {
         try {
           const items = await fetchNigerian();
           cache.set("nigerian", { data: items, at: Date.now() });
         } catch {
           /* keep previous cache on failure */
         }
+        try {
+          const items = await fetchAfrican();
+          cache.set("african", { data: items, at: Date.now() });
+        } catch {
+          /* keep previous cache on failure */
+        }
       };
-      warmNigerian();
-      const timer = setInterval(warmNigerian, REFRESH_INTERVAL);
+      warmCaches();
+      const timer = setInterval(warmCaches, REFRESH_INTERVAL);
       server.httpServer?.on("close", () => clearInterval(timer));
 
       server.middlewares.use(async (req, res, next) => {
@@ -90,17 +115,17 @@ export function pinterestTrendsPlugin(): Plugin {
           const parsed = new URL(reqUrl, "http://localhost");
           const feed = parsed.searchParams.get("feed") || "nigerian";
 
-          if (feed === "nigerian") {
-            const cached = cache.get("nigerian");
+          if (feed === "nigerian" || feed === "african") {
+            const cached = cache.get(feed);
             if (cached && Date.now() - cached.at < CACHE_TTL) {
               res.setHeader("Content-Type", "application/json");
-              res.end(JSON.stringify({ items: cached.data, source: "nigerian", cached: true }));
+              res.end(JSON.stringify({ items: cached.data, source: feed, cached: true }));
               return;
             }
-            const items = await fetchNigerian();
-            cache.set("nigerian", { data: items, at: Date.now() });
+            const items = feed === "nigerian" ? await fetchNigerian() : await fetchAfrican();
+            cache.set(feed, { data: items, at: Date.now() });
             res.setHeader("Content-Type", "application/json");
-            res.end(JSON.stringify({ items, source: "nigerian", cached: false }));
+            res.end(JSON.stringify({ items, source: feed, cached: false }));
             return;
           }
 

@@ -20,8 +20,7 @@ interface TrendsResponse {
 
 const PRESETS = [
   { label: "Nigerian Fashion", feed: "nigerian" },
-  { label: "Fashion", feed: "pinterest/fashion" },
-  { label: "Pinterest Picks", feed: "pinterest/feed" },
+  { label: "Fashion", feed: "african" },
 ];
 
 const TrendsPage = () => {
