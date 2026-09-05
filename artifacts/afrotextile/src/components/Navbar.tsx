@@ -22,8 +22,8 @@ const Navbar = () => {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link to="/" className="font-serif text-2xl font-bold tracking-wide text-gradient-gold">
-          AFROTEXTILE
+        <Link to="/" className="flex items-center" aria-label="Afrotextile home">
+          <img src="/logo.png" alt="Afrotextile" className="h-10 w-auto rounded-md" />
         </Link>
 
         {/* Desktop nav */}

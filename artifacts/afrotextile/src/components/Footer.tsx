@@ -7,7 +7,7 @@ const Footer = () => {
       <div className="container mx-auto px-4 py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
           <div className="md:col-span-1">
-            <h3 className="font-serif text-2xl font-bold text-gradient-gold mb-4">AFROTEXTILE</h3>
+            <img src="/logo.png" alt="Afrotextile" className="h-28 w-auto mb-4 rounded-md" />
             <p className="text-sm text-muted-foreground leading-relaxed">
               Celebrating African heritage through fashion. Bold prints, luxurious textures, modern silhouettes.
             </p>
