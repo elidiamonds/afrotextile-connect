@@ -19,12 +19,13 @@ interface TrendsResponse {
 }
 
 const PRESETS = [
+  { label: "Nigerian Fashion", feed: "nigerian" },
   { label: "Fashion", feed: "pinterest/fashion" },
   { label: "Pinterest Picks", feed: "pinterest/feed" },
 ];
 
 const TrendsPage = () => {
-  const [feed, setFeed] = useState("pinterest/fashion");
+  const [feed, setFeed] = useState("nigerian");
   const [custom, setCustom] = useState("");
   const [data, setData] = useState<TrendsResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -52,6 +53,12 @@ const TrendsPage = () => {
 
   useEffect(() => {
     fetchTrends(feed);
+  }, [feed, fetchTrends]);
+
+  // Auto-refresh so the board stays current with the server's scheduled pulls
+  useEffect(() => {
+    const id = setInterval(() => fetchTrends(feed), 5 * 60 * 1000);
+    return () => clearInterval(id);
   }, [feed, fetchTrends]);
 
   const handleCustomSearch = (e: React.FormEvent) => {

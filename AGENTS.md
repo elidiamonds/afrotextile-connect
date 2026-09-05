@@ -23,7 +23,8 @@ A pnpm workspace monorepo. The user-facing app is the **frontend** at `artifacts
 - `artifacts/afrotextile/pinterest-trends-plugin.ts` is a Vite dev-server plugin (registered in `vite.config.ts`) that handles `GET /api/trends?feed=<user/board>`. It fetches `https://www.pinterest.com/<feed>.rss` server-side (no CORS), parses `<item>`s, and returns JSON `{items:[{title,image,link,date}]}`. 10-min in-memory cache.
 - Pinterest board RSS pins often have **empty `<title>`** and HTML-entity-encoded `<description>` (quotes are `&quot;`); the parser decodes entities first and falls back to `"Pinterest inspiration"` when the title is blank. Image URL is extracted from the decoded `<img src>`.
 - Confirmed working feeds: `pinterest/fashion` (Fashion board), `pinterest/feed` (official user feed). Many board slugs 404 — only valid public boards return data.
-- Frontend page: `src/pages/TrendsPage.tsx` at route `/trends` (nav link "Trends"). No backend service needed — the Vite dev server itself serves the API.
+- **Nigerian fashion automation**: `feed=nigerian` aggregates 6 curated Nigerian/African fashion boards (`bukkysun/ankara-styles`, `michelleogu4857/nigerian-fashion`, `akosuagabriel/ankara-styles`, `evylina/nigerian-fashion`, `biskhid6/ankara-styles`, `blesseddivas1/ankara-fashion`), deduped by image (~147 pins). The plugin **auto-pulls** these on server startup and every 5 min (`setInterval`) to keep the cache warm, so listings always show current trends. Cache TTL is 5 min.
+- Frontend: `src/pages/TrendsPage.tsx` at route `/trends` (nav link "Trends", defaults to Nigerian Fashion, auto-refreshes every 5 min). `src/components/TrendingNow.tsx` shows a live strip on the Shop page. No backend service needed — the Vite dev server itself serves the API.
 
 ## Verifying it works
 - `curl -sf http://localhost:3000/` returns the HTML with the Vite client injected.

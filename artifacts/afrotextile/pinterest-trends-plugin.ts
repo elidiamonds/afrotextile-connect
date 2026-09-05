@@ -7,8 +7,19 @@ interface PinItem {
   date: string;
 }
 
+// Curated Nigerian / African fashion boards on Pinterest
+const NIGERIAN_FEEDS = [
+  "bukkysun/ankara-styles",
+  "michelleogu4857/nigerian-fashion",
+  "akosuagabriel/ankara-styles",
+  "evylina/nigerian-fashion",
+  "biskhid6/ankara-styles",
+  "blesseddivas1/ankara-fashion",
+];
+
 const cache = new Map<string, { data: PinItem[]; at: number }>();
-const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const REFRESH_INTERVAL = 5 * 60 * 1000; // auto-pull every 5 minutes
 
 function decodeEntities(s: string): string {
   return s
@@ -31,40 +42,76 @@ function parseRss(xml: string): PinItem[] {
     const date = (block.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1] ?? "").trim();
     const desc = decodeEntities(block.match(/<description>([\s\S]*?)<\/description>/)?.[1] ?? "");
     const image = desc.match(/src="(https:\/\/i\.pinimg\.com[^"]+)"/)?.[1] ?? "";
-    if (image) items.push({ title: title || "Pinterest inspiration", image, link, date });
+    if (image) items.push({ title: title || "Nigerian fashion inspiration", image, link, date });
   }
   return items;
+}
+
+async function fetchFeed(feed: string): Promise<PinItem[]> {
+  const safeFeed = feed.replace(/[^a-zA-Z0-9/_-]/g, "");
+  const rssUrl = `https://www.pinterest.com/${safeFeed}.rss`;
+  const r = await fetch(rssUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
+  if (!r.ok) return [];
+  return parseRss(await r.text());
+}
+
+async function fetchNigerian(): Promise<PinItem[]> {
+  const results = await Promise.all(NIGERIAN_FEEDS.map(fetchFeed));
+  const seen = new Set<string>();
+  return results.flat().filter((it) => {
+    if (seen.has(it.image)) return false;
+    seen.add(it.image);
+    return true;
+  });
 }
 
 export function pinterestTrendsPlugin(): Plugin {
   return {
     name: "pinterest-trends",
     configureServer(server) {
+      // Automation: warm the Nigerian trends cache on startup and re-pull on a
+      // schedule so product listings always reflect the latest inspiration.
+      const warmNigerian = async () => {
+        try {
+          const items = await fetchNigerian();
+          cache.set("nigerian", { data: items, at: Date.now() });
+        } catch {
+          /* keep previous cache on failure */
+        }
+      };
+      warmNigerian();
+      const timer = setInterval(warmNigerian, REFRESH_INTERVAL);
+      server.httpServer?.on("close", () => clearInterval(timer));
+
       server.middlewares.use(async (req, res, next) => {
         const reqUrl = req.url ?? "";
         if (!reqUrl.startsWith("/api/trends")) return next();
         try {
           const parsed = new URL(reqUrl, "http://localhost");
-          const feed = parsed.searchParams.get("feed") || "pinterest/fashion";
-          const safeFeed = feed.replace(/[^a-zA-Z0-9/_-]/g, "");
-          const rssUrl = `https://www.pinterest.com/${safeFeed}.rss`;
+          const feed = parsed.searchParams.get("feed") || "nigerian";
 
+          if (feed === "nigerian") {
+            const cached = cache.get("nigerian");
+            if (cached && Date.now() - cached.at < CACHE_TTL) {
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ items: cached.data, source: "nigerian", cached: true }));
+              return;
+            }
+            const items = await fetchNigerian();
+            cache.set("nigerian", { data: items, at: Date.now() });
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify({ items, source: "nigerian", cached: false }));
+            return;
+          }
+
+          const safeFeed = feed.replace(/[^a-zA-Z0-9/_-]/g, "");
           const cached = cache.get(safeFeed);
           if (cached && Date.now() - cached.at < CACHE_TTL) {
             res.setHeader("Content-Type", "application/json");
             res.end(JSON.stringify({ items: cached.data, source: safeFeed, cached: true }));
             return;
           }
-
-          const r = await fetch(rssUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
-          if (!r.ok) {
-            res.statusCode = 502;
-            res.setHeader("Content-Type", "application/json");
-            res.end(JSON.stringify({ error: `Pinterest feed returned ${r.status}` }));
-            return;
-          }
-          const xml = await r.text();
-          const items = parseRss(xml);
+          const items = await fetchFeed(safeFeed);
           cache.set(safeFeed, { data: items, at: Date.now() });
           res.setHeader("Content-Type", "application/json");
           res.end(JSON.stringify({ items, source: safeFeed, cached: false }));
