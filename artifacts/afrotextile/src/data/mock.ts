@@ -1,15 +1,11 @@
 import { Product, Vendor } from "@/types";
-import p1 from "@/assets/product-1.jpg";
-import p2 from "@/assets/product-2.jpg";
-import p3 from "@/assets/product-3.jpg";
-import p4 from "@/assets/product-4.jpg";
-import p5 from "@/assets/product-5.jpg";
-import p6 from "@/assets/product-6.jpg";
-import p7 from "@/assets/product-7.jpg";
-import p8 from "@/assets/product-8.jpg";
 import v1img from "@/assets/editorial-women.jpg";
 import v2img from "@/assets/editorial-men.jpg";
 import v3img from "@/assets/editorial-craft.jpg";
+
+// Fashion items extracted from Pinterest — all African-focused boards
+// (Ankara, Nigerian fashion, African print dresses, Kente, etc.)
+const pin = (id: string) => `https://i.pinimg.com/236x/${id}.jpg`;
 
 export const products: Product[] = [
   {
@@ -17,8 +13,8 @@ export const products: Product[] = [
     name: "Ankara Co-ord Set",
     price: 285,
     originalPrice: 350,
-    images: [p1],
-    category: "Women's Fashion",
+    images: [pin("00/a0/af/00a0af96ad1a0675e015ea6e5ab71418"), pin("05/13/e9/0513e9143ede759bc7523c2b534ad3c0"), pin("06/5c/f9/065cf9c6e4c82c310229ed20a8fda87d")],
+    category: "Ankara Styles",
     vendor: "Adunni Couture",
     vendorId: "v1",
     sizes: ["XS", "S", "M", "L", "XL"],
@@ -30,8 +26,8 @@ export const products: Product[] = [
     id: "2",
     name: "Kente Maxi Gown",
     price: 420,
-    images: [p2],
-    category: "Women's Fashion",
+    images: [pin("06/f3/f3/06f3f35120107c86693e0995ab220fb9"), pin("07/e7/1c/07e71c5e3b3ec544939ee771d736bb09"), pin("0b/4c/93/0b4c9373015668f37ee85ea603ee5b83")],
+    category: "Kente & Woven",
     vendor: "Nana's Heritage",
     vendorId: "v2",
     sizes: ["XS", "S", "M", "L"],
@@ -43,8 +39,8 @@ export const products: Product[] = [
     id: "3",
     name: "Mudcloth Bomber Jacket",
     price: 310,
-    images: [p3],
-    category: "Men's Fashion",
+    images: [pin("0e/f8/84/0ef884abbf06deedf812bd63fd2ae1e5"), pin("0f/15/b4/0f15b4eee81c1030aa716d5ff68efcb7"), pin("10/08/4d/10084d712f8317bd21d457539dd2e7d0")],
+    category: "Mudcloth & Bogolan",
     vendor: "Bamako Modern",
     vendorId: "v3",
     sizes: ["M", "L", "XL", "XXL"],
@@ -56,8 +52,8 @@ export const products: Product[] = [
     id: "4",
     name: "Aso-Oke Corset",
     price: 195,
-    images: [p4],
-    category: "Women's Fashion",
+    images: [pin("10/da/3c/10da3c47e2080c62475479a188a26333"), pin("10/f3/84/10f384af3b8fb716f1bf3f6ce90af1f9"), pin("11/d2/0a/11d20a63b1788ba2ef938fe7a5760a42")],
+    category: "Aso-Oke & Ceremonial",
     vendor: "Adunni Couture",
     vendorId: "v1",
     sizes: ["XS", "S", "M", "L"],
@@ -69,8 +65,8 @@ export const products: Product[] = [
     id: "5",
     name: "Embroidered Kaftan",
     price: 245,
-    images: [p5],
-    category: "Men's Fashion",
+    images: [pin("12/a3/c0/12a3c0af3a7a02252219f4ccbec103ba"), pin("14/4f/77/144f772aa075f5984885a37b1df68e64"), pin("15/66/19/1566192de421a4199bc5e2eb3898f753")],
+    category: "Men's African Fashion",
     vendor: "Lagos Luxe",
     vendorId: "v4",
     sizes: ["S", "M", "L", "XL", "XXL"],
@@ -82,8 +78,8 @@ export const products: Product[] = [
     id: "6",
     name: "Adire Wide-Leg Trousers",
     price: 230,
-    images: [p6],
-    category: "Women's Fashion",
+    images: [pin("17/93/9c/17939c6281c737675f14b41e51cac2ac"), pin("17/cb/1a/17cb1ae146fe9cc55aaddbd2cdbc8c5d"), pin("18/5f/a6/185fa6284fec8657ab1fd5c9a39ce075")],
+    category: "Adire & Indigo",
     vendor: "Nana's Heritage",
     vendorId: "v2",
     sizes: ["S", "M", "L"],
@@ -95,8 +91,8 @@ export const products: Product[] = [
     id: "7",
     name: "Kitenge Wrap Skirt",
     price: 145,
-    images: [p7],
-    category: "Women's Fashion",
+    images: [pin("18/c5/bc/18c5bcfa0e41769b6567a87825ea436f"), pin("19/8a/73/198a73dcd0c8c97566e8334f33bed620"), pin("1a/4a/ba/1a4abaa27edd628bea2f317a12e06a92")],
+    category: "Kitenge & East African",
     vendor: "Zanzibar Threads",
     vendorId: "v5",
     sizes: ["XS", "S", "M", "L", "XL"],
@@ -108,8 +104,8 @@ export const products: Product[] = [
     id: "8",
     name: "Hand-Woven Tote",
     price: 165,
-    images: [p8],
-    category: "Accessories",
+    images: [pin("1a/97/d7/1a97d7ef5cea8377f44b39e2b8a45d9d"), pin("1a/fc/93/1afc93d91dd744a4cd35c53c52dc3409"), pin("1c/e3/ca/1ce3ca93b29300daf224444fd5bfdb8a")],
+    category: "Accessories & Bags",
     vendor: "Cape Heritage Co.",
     vendorId: "v6",
     sizes: ["One Size"],
@@ -154,14 +150,14 @@ export const vendors: Vendor[] = [
 
 export const categories = [
   "All",
-  "Fabrics",
-  "Women's Fashion",
-  "Men's Fashion",
-  "Ready-to-Wear",
-  "Accessories",
-  "Footwear",
-  "Cultural Fashion",
-  "Tailoring Materials",
+  "Ankara Styles",
+  "Kente & Woven",
+  "Aso-Oke & Ceremonial",
+  "Adire & Indigo",
+  "Mudcloth & Bogolan",
+  "Kitenge & East African",
+  "Men's African Fashion",
+  "Accessories & Bags",
 ];
 
 export const fabricTypes = [
