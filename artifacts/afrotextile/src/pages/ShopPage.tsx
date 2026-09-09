@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import ProductCard from "@/components/ProductCard";
+import TrendingNow from "@/components/TrendingNow";
 import { products, categories, fabricTypes } from "@/data/mock";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -28,6 +29,8 @@ const ShopPage = () => {
           <h1 className="text-4xl md:text-5xl font-serif font-bold text-foreground">Shop</h1>
           <p className="text-muted-foreground font-sans">Discover authentic African fashion from independent designers</p>
         </div>
+
+        <TrendingNow />
 
         {/* Filters */}
         <div className="flex flex-wrap gap-4 mb-10">

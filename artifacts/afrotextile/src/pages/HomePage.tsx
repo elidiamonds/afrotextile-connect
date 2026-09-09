@@ -5,10 +5,6 @@ import { Button } from "@/components/ui/button";
 import ProductCard from "@/components/ProductCard";
 import { products, vendors, testimonials } from "@/data/mock";
 import heroMain from "@/assets/editorial-hero.jpg";
-import catFabrics from "@/assets/cat-fabrics.jpg";
-import catMen from "@/assets/editorial-men.jpg";
-import catWomen from "@/assets/editorial-women.jpg";
-import catFootwear from "@/assets/cat-footwear.jpg";
 import editorialRunway from "@/assets/editorial-runway.jpg";
 import editorialAccessories from "@/assets/editorial-accessories.jpg";
 import editorialLookbook from "@/assets/editorial-lookbook.jpg";
@@ -26,13 +22,13 @@ const HomePage = () => {
   };
 
   const categoryCards = [
-    { img: catFabrics, title: "Fabrics", count: "320+ items" },
-    { img: catWomen, title: "Women's Fashion", count: "1,240+ items" },
-    { img: catMen, title: "Men's Fashion", count: "680+ items" },
-    { img: editorialAccessories, title: "Accessories", count: "490+ items" },
-    { img: catFootwear, title: "Footwear", count: "210+ items" },
-    { img: editorialRunway, title: "Cultural Fashion", count: "180+ items" },
-    { img: editorialLookbook, title: "Ready-to-Wear", count: "560+ items" },
+    { img: "https://i.pinimg.com/236x/1d/0a/bb/1d0abb07282b084c6956a692094534a7.jpg", title: "Ankara Styles", count: "1,240+ items" },
+    { img: "https://i.pinimg.com/236x/1d/d9/b9/1dd9b9fc6358f56d2f42b69fe12c238d.jpg", title: "Kente & Woven", count: "320+ items" },
+    { img: "https://i.pinimg.com/236x/1e/94/9f/1e949f3757974c9eb7e4d34446c43f16.jpg", title: "Aso-Oke & Ceremonial", count: "180+ items" },
+    { img: "https://i.pinimg.com/236x/1f/d1/3f/1fd13fcc918f6e7f04d4b7bb4c5a4088.jpg", title: "Adire & Indigo", count: "210+ items" },
+    { img: "https://i.pinimg.com/236x/23/81/53/2381531cd5a6140498d83eb08317bb6e.jpg", title: "Mudcloth & Bogolan", count: "150+ items" },
+    { img: "https://i.pinimg.com/236x/25/d3/b3/25d3b3cb7d2c0072dd7d006c2581e9ab.jpg", title: "Kitenge & East African", count: "490+ items" },
+    { img: "https://i.pinimg.com/236x/25/d6/7d/25d67d8d81441101f510ebda608ad2b3.jpg", title: "Accessories & Bags", count: "560+ items" },
   ];
 
   const regionCards = [

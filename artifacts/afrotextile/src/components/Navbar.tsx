@@ -2,11 +2,13 @@ import { Link } from "react-router-dom";
 import { ShoppingBag, Heart, Menu, X, Search, Sparkles } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
+import ThemeToggle from "@/components/ThemeToggle";
 import { useState } from "react";
 
 const navLinks = [
   { label: "Shop", to: "/shop" },
   { label: "Style Lab", to: "/style-lab" },
+  { label: "Trends", to: "/trends" },
   { label: "Collections", to: "/shop" },
   { label: "About", to: "/about" },
   { label: "Contact", to: "/contact" },
@@ -20,8 +22,8 @@ const Navbar = () => {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link to="/" className="font-serif text-2xl font-bold tracking-wide text-gradient-gold">
-          AFROTEXTILE
+        <Link to="/" className="flex items-center" aria-label="Afrotextile home">
+          <img src="/logo.png" alt="Afrotextile" className="h-10 w-auto rounded-md" />
         </Link>
 
         {/* Desktop nav */}
@@ -41,6 +43,7 @@ const Navbar = () => {
           <Link to="/style-lab" data-testid="link-style-lab-nav" className="hidden items-center gap-1.5 text-xs font-sans uppercase tracking-widest text-primary transition-colors hover:text-foreground lg:flex">
             <Sparkles className="h-3.5 w-3.5" /> Style Lab
           </Link>
+          <ThemeToggle />
           <Link to="/shop" className="text-foreground hover:text-primary transition-colors">
             <Search className="w-5 h-5" />
           </Link>
