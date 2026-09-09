@@ -66,7 +66,7 @@ export const products: Product[] = [
     name: "Embroidered Kaftan",
     price: 245,
     images: [pin("12/a3/c0/12a3c0af3a7a02252219f4ccbec103ba"), pin("14/4f/77/144f772aa075f5984885a37b1df68e64"), pin("15/66/19/1566192de421a4199bc5e2eb3898f753")],
-    category: "Men's African Fashion",
+    category: "Men's Fashion Styles",
     vendor: "Lagos Luxe",
     vendorId: "v4",
     sizes: ["S", "M", "L", "XL", "XXL"],
@@ -113,6 +113,32 @@ export const products: Product[] = [
     description: "Architectural tote in woven raffia with full-grain leather handles. Made in Cape Town.",
     rating: 4.8, reviews: 91, inStock: true, isTrending: true,
   },
+  {
+    id: "9",
+    name: "Ankara Wax Print Fabric",
+    price: 45,
+    images: [pin("26/89/2c/26892cf1e0857ecf0391d449c07a12ca"), pin("27/42/15/274215ec1c41aa6cbd99088d0d551b17")],
+    category: "Unsown Fabric",
+    vendor: "Adunni Couture",
+    vendorId: "v1",
+    sizes: ["Per Yard (6 yds)"],
+    fabricType: "Ankara",
+    description: "Premium Hollandais wax print sold by the full 6-yard piece. Unsewn — ready for your tailor to craft a bespoke look.",
+    rating: 4.7, reviews: 58, inStock: true, isNew: true,
+  },
+  {
+    id: "10",
+    name: "Handwoven Kente Panel",
+    price: 180,
+    images: [pin("27/42/15/274215ec1c41aa6cbd99088d0d551b17"), pin("26/89/2c/26892cf1e0857ecf0391d449c07a12ca")],
+    category: "Unsown Fabric",
+    vendor: "Nana's Heritage",
+    vendorId: "v2",
+    sizes: ["2 yards"],
+    fabricType: "Kente",
+    description: "Authentic handwoven Kente strip from Bonwire. Sold as an unsewn panel for ceremonial wrapping or custom tailoring.",
+    rating: 4.9, reviews: 37, inStock: true, isTrending: true,
+  },
 ];
 
 export const vendors: Vendor[] = [
@@ -156,7 +182,8 @@ export const categories = [
   "Adire & Indigo",
   "Mudcloth & Bogolan",
   "Kitenge & East African",
-  "Men's African Fashion",
+  "Men's Fashion Styles",
+  "Unsown Fabric",
   "Accessories & Bags",
 ];
 
