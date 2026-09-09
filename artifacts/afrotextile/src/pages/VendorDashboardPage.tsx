@@ -64,6 +64,15 @@ const VendorDashboardPage = () => {
     return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3);
   }, [orders]);
 
+  // All African fashion items grouped by their style category
+  const groupedByCategory = useMemo(() => {
+    const groups: Record<string, Product[]> = {};
+    products.forEach((p) => {
+      (groups[p.category] ??= []).push(p);
+    });
+    return groups;
+  }, []);
+
   const resetForm = () =>
     setForm({
       name: "",
@@ -168,6 +177,7 @@ const VendorDashboardPage = () => {
           <TabsList className="mb-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="products">Products</TabsTrigger>
+            <TabsTrigger value="collections">Collections</TabsTrigger>
             <TabsTrigger value="orders">Orders</TabsTrigger>
           </TabsList>
 
@@ -297,6 +307,47 @@ const VendorDashboardPage = () => {
                 </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Collections — African fashion items organized by style category */}
+          <TabsContent value="collections">
+            <div className="space-y-10">
+              {Object.entries(groupedByCategory).map(([category, items]) => (
+                <section key={category}>
+                  <div className="flex items-center gap-4 mb-4">
+                    <div>
+                      <h3 className="text-xl font-serif font-bold text-foreground">{category}</h3>
+                      <p className="text-xs text-muted-foreground font-sans uppercase tracking-wider">
+                        {items.length} {items.length === 1 ? "item" : "items"}
+                      </p>
+                    </div>
+                    <span className="h-px flex-1 bg-border" />
+                    <Link to={`/shop?category=${encodeURIComponent(category)}`} className="text-xs font-sans uppercase tracking-wider text-primary hover:underline whitespace-nowrap">
+                      View in shop
+                    </Link>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {items.map((p) => (
+                      <div key={p.id} className="group bg-card rounded-sm border border-border overflow-hidden">
+                        <div className="aspect-[3/4] overflow-hidden bg-muted">
+                          <img src={p.images[0]} alt={p.name} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                        </div>
+                        <div className="p-3">
+                          <p className="font-sans text-sm font-medium text-foreground leading-tight">{p.name}</p>
+                          <p className="text-xs text-muted-foreground font-sans mt-0.5">{p.fabricType}</p>
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="font-serif font-bold text-primary">${p.price}</span>
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground font-sans">
+                              <Star className="w-3 h-3 fill-primary text-primary" />{p.rating}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
           </TabsContent>
 
           {/* Orders */}
