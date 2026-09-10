@@ -10,6 +10,10 @@ import p8 from "@/assets/product-8.jpg";
 import v1img from "@/assets/editorial-women.jpg";
 import v2img from "@/assets/editorial-men.jpg";
 import v3img from "@/assets/editorial-craft.jpg";
+import nigerianAgbada from "@/assets/nigerian-agbada.jpg";
+import nigerianIroBuba from "@/assets/nigerian-iro-buba.jpg";
+import nigerianAsoEbi from "@/assets/nigerian-aso-ebi.jpg";
+import nigerianIsiAgu from "@/assets/nigerian-isi-agu.jpg";
 
 export const products: Product[] = [
   {
@@ -117,6 +121,58 @@ export const products: Product[] = [
     description: "Architectural tote in woven raffia with full-grain leather handles. Made in Cape Town.",
     rating: 4.8, reviews: 91, inStock: true, isTrending: true,
   },
+  {
+    id: "9",
+    name: "Agbada Atelier Set",
+    price: 460,
+    images: [nigerianAgbada],
+    category: "Nigerian Styles",
+    vendor: "Lagos Luxe",
+    vendorId: "v4",
+    sizes: ["M", "L", "XL", "XXL"],
+    fabricType: "Aso-Oke",
+    description: "A modern three-piece Agbada cut in luminous ivory with indigo embroidery. Lagos tailoring with a ceremonial presence.",
+    rating: 4.9, reviews: 38, inStock: true, isNew: true, isTrending: true,
+  },
+  {
+    id: "10",
+    name: "Iro & Buba Set",
+    price: 335,
+    images: [nigerianIroBuba],
+    category: "Nigerian Styles",
+    vendor: "Adunni Couture",
+    vendorId: "v1",
+    sizes: ["XS", "S", "M", "L", "XL"],
+    fabricType: "Aso-Oke",
+    description: "An elegant Iro and Buba pairing with a sculptural gele-inspired finish, tailored for celebrations and modern heirlooms.",
+    rating: 4.8, reviews: 51, inStock: true, isNew: true, isTrending: true,
+  },
+  {
+    id: "11",
+    name: "Aso Ebi Lace Ensemble",
+    price: 395,
+    images: [nigerianAsoEbi],
+    category: "Nigerian Styles",
+    vendor: "Adunni Couture",
+    vendorId: "v1",
+    sizes: ["XS", "S", "M", "L"],
+    fabricType: "Silk Blend",
+    description: "A cobalt and gold Aso Ebi ensemble with dimensional lace and an occasion-ready silhouette for the full wedding weekend.",
+    rating: 4.9, reviews: 44, inStock: true, isNew: true,
+  },
+  {
+    id: "12",
+    name: "Isi Agu Tailored Jacket",
+    price: 290,
+    images: [nigerianIsiAgu],
+    category: "Nigerian Styles",
+    vendor: "Lagos Luxe",
+    vendorId: "v4",
+    sizes: ["S", "M", "L", "XL", "XXL"],
+    fabricType: "Ankara",
+    description: "A sharp tailored jacket inspired by the graphic rhythm of Isi Agu, translated into a versatile modern wardrobe piece.",
+    rating: 4.7, reviews: 29, inStock: true, isNew: true,
+  },
 ];
 
 export const vendors: Vendor[] = [
@@ -157,6 +213,7 @@ export const categories = [
   "Fabrics",
   "Women's Fashion",
   "Men's Fashion",
+  "Nigerian Styles",
   "Ready-to-Wear",
   "Accessories",
   "Footwear",

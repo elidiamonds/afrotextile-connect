@@ -12,10 +12,12 @@ import catFootwear from "@/assets/cat-footwear.jpg";
 import editorialRunway from "@/assets/editorial-runway.jpg";
 import editorialAccessories from "@/assets/editorial-accessories.jpg";
 import editorialLookbook from "@/assets/editorial-lookbook.jpg";
+import nigerianAsoEbi from "@/assets/nigerian-aso-ebi.jpg";
 
 const HomePage = () => {
   const trending = products.filter((p) => p.isTrending);
   const newArrivals = products.filter((p) => p.isNew);
+  const nigerianEdit = products.filter((p) => p.category === "Nigerian Styles");
   const [email, setEmail] = useState("");
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
@@ -33,6 +35,7 @@ const HomePage = () => {
     { img: catFootwear, title: "Footwear", count: "210+ items" },
     { img: editorialRunway, title: "Cultural Fashion", count: "180+ items" },
     { img: editorialLookbook, title: "Ready-to-Wear", count: "560+ items" },
+    { img: nigerianAsoEbi, title: "Nigerian Styles", count: "420+ items" },
   ];
 
   const regionCards = [
@@ -105,7 +108,7 @@ const HomePage = () => {
             <span className="font-sans text-xs uppercase tracking-[0.3em] text-primary">Shop By</span>
             <h2 className="text-3xl md:text-5xl font-serif font-bold text-foreground">Popular Categories</h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-4">
             {categoryCards.map((cat) => (
               <Link
                 key={cat.title}
@@ -154,6 +157,28 @@ const HomePage = () => {
                 <img src={editorialAccessories} alt="Woven accessory editorial still life" loading="lazy" width={1024} height={1024} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-20 md:py-24 bg-background">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between mb-12">
+            <div className="space-y-3">
+              <span className="font-sans text-xs uppercase tracking-[0.3em] text-primary">Lagos / Enugu / Ibadan</span>
+              <h2 className="text-3xl md:text-5xl font-serif font-bold text-foreground">The Nigerian Edit</h2>
+              <p className="text-muted-foreground font-sans max-w-xl">
+                Ceremony, tailoring, and everyday expression — four Nigerian signatures, re-cut for the world.
+              </p>
+            </div>
+            <Button asChild variant="heroOutline" className="self-start md:self-auto">
+              <Link to="/shop?category=Nigerian%20Styles">Shop Nigerian styles <ArrowRight className="w-4 h-4 ml-2" /></Link>
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {nigerianEdit.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
           </div>
         </div>
       </section>

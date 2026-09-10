@@ -31,16 +31,16 @@ const scoreProduct = (product: Product, occasion: Occasion, aesthetic: Aesthetic
   let score = product.rating * 2;
 
   const occasionTerms: Record<Occasion, string[]> = {
-    gallery: ["bomber", "corset", "trouser", "tote", "woven"],
-    ceremony: ["kente", "aso-oke", "gown", "kaftan", "silk"],
-    evening: ["gown", "corset", "kaftan", "gold", "silk"],
-    everyday: ["ankara", "trouser", "skirt", "tote", "kitenge"],
+    gallery: ["bomber", "corset", "trouser", "tote", "woven", "isi agu"],
+    ceremony: ["kente", "aso-oke", "gown", "kaftan", "silk", "agbada", "iro", "aso ebi"],
+    evening: ["gown", "corset", "kaftan", "gold", "silk", "aso ebi"],
+    everyday: ["ankara", "trouser", "skirt", "tote", "kitenge", "isi agu"],
   };
   const aestheticTerms: Record<Aesthetic, string[]> = {
-    sculptural: ["corset", "bomber", "tote", "woven"],
-    indigo: ["adire", "mudcloth", "kitenge"],
-    sunlit: ["ankara", "kente", "aso-oke", "gold"],
-    quiet: ["silk", "kaftan", "tote", "woven", "adire"],
+    sculptural: ["corset", "bomber", "tote", "woven", "agbada", "isi agu"],
+    indigo: ["adire", "mudcloth", "kitenge", "aso-oke"],
+    sunlit: ["ankara", "kente", "aso-oke", "gold", "aso ebi", "iro"],
+    quiet: ["silk", "kaftan", "tote", "woven", "adire", "agbada"],
   };
 
   if (occasionTerms[occasion].some((term) => text.includes(term))) score += 8;
