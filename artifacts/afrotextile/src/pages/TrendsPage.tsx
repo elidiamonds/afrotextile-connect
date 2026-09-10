@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { RefreshCw, ExternalLink, Search, Sparkles, AlertCircle } from "lucide-react";
+import { RefreshCw, ExternalLink, Search, Sparkles, AlertCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -9,32 +9,60 @@ interface PinItem {
   image: string;
   link: string;
   date: string;
+  source: "Nigerian" | "African";
 }
 
 interface TrendsResponse {
   items: PinItem[];
   source: string;
   cached?: boolean;
+  lastRefreshed?: string | null;
+  nextRefreshIn?: number | null;
+  refreshIntervalHours?: number;
   error?: string;
 }
 
 const PRESETS = [
+  { label: "African (Nigerian first)", feed: "combined" },
   { label: "Nigerian Fashion", feed: "nigerian" },
-  { label: "Fashion", feed: "african" },
+  { label: "African Fashion", feed: "african" },
 ];
 
+const formatNext = (ms: number | null | undefined) => {
+  if (ms == null) return "soon";
+  const h = Math.floor(ms / (60 * 60 * 1000));
+  const m = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
+  if (h >= 1) return `${h}h ${m}m`;
+  return `${m}m`;
+};
+
+const formatTime = (iso: string | null | undefined) => {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+      day: "numeric",
+      month: "short",
+    });
+  } catch {
+    return "—";
+  }
+};
+
 const TrendsPage = () => {
-  const [feed, setFeed] = useState("nigerian");
+  const [feed, setFeed] = useState("combined");
   const [custom, setCustom] = useState("");
   const [data, setData] = useState<TrendsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchTrends = useCallback(async (f: string) => {
+  const fetchTrends = useCallback(async (f: string, force = false) => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/trends?feed=${encodeURIComponent(f)}`);
+      const url = `/api/trends?feed=${encodeURIComponent(f)}${force ? "&refresh=1" : ""}`;
+      const res = await fetch(url);
       const json: TrendsResponse = await res.json();
       if (!res.ok) {
         setError(json.error || "Failed to load trends");
@@ -54,9 +82,9 @@ const TrendsPage = () => {
     fetchTrends(feed);
   }, [feed, fetchTrends]);
 
-  // Auto-refresh so the board stays current with the server's scheduled pulls
+  // Auto-refresh on the same daily cadence as the server's scheduled task.
   useEffect(() => {
-    const id = setInterval(() => fetchTrends(feed), 5 * 60 * 1000);
+    const id = setInterval(() => fetchTrends(feed), 60 * 60 * 1000);
     return () => clearInterval(id);
   }, [feed, fetchTrends]);
 
@@ -76,9 +104,21 @@ const TrendsPage = () => {
           </div>
           <h1 className="text-4xl md:text-5xl font-serif font-bold text-foreground">Trend Inspiration</h1>
           <p className="text-muted-foreground font-sans max-w-2xl">
-            Fresh fashion styles fetched live from Pinterest boards to keep your product listings aligned with current trends.
+            Fresh fashion styles pulled from Pinterest and refreshed automatically every day. Nigerian trends are prioritised so the newest looks stay front and centre.
           </p>
         </div>
+
+        {/* Daily refresh schedule */}
+        {data && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-6 text-xs font-sans text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-primary" />
+              Auto-refreshed every {data.refreshIntervalHours ?? 24}h
+            </span>
+            <span>Last refreshed: {formatTime(data.lastRefreshed)}</span>
+            <span>Next refresh in {formatNext(data.nextRefreshIn)}</span>
+          </div>
+        )}
 
         {/* Controls */}
         <div className="flex flex-col md:flex-row gap-4 mb-8">
@@ -108,8 +148,8 @@ const TrendsPage = () => {
               <Search className="w-4 h-4" />
             </Button>
           </form>
-          <Button variant="hero" onClick={() => fetchTrends(feed)} disabled={loading}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Refresh
+          <Button variant="hero" onClick={() => fetchTrends(feed, true)} disabled={loading}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Refresh now
           </Button>
         </div>
 
@@ -151,6 +191,15 @@ const TrendsPage = () => {
                   loading="lazy"
                   className="w-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
+                <span
+                  className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-sans font-semibold uppercase tracking-wider ${
+                    pin.source === "Nigerian"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background/80 text-foreground backdrop-blur"
+                  }`}
+                >
+                  {pin.source}
+                </span>
                 <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity">
                   <p className="text-xs font-sans text-foreground line-clamp-2 leading-snug">{pin.title}</p>
