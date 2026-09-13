@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Heart, ShoppingBag, Star, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { products } from "@/data/mock";
+import { useGetProduct } from "@workspace/api-client-react";
+import { mapApiProduct } from "@/lib/product-mapper";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import ProductCard from "@/components/ProductCard";
@@ -10,7 +12,10 @@ import { useToast } from "@/hooks/use-toast";
 
 const ProductPage = () => {
   const { id } = useParams<{ id: string }>();
-  const product = products.find((p) => p.id === id);
+  const { data: apiProduct } = useGetProduct(id ?? "");
+  const product = apiProduct
+    ? mapApiProduct(apiProduct)
+    : products.find((p) => p.id === id);
   const [selectedSize, setSelectedSize] = useState<string>("");
   const { addItem } = useCart();
   const { toggleItem, isWished } = useWishlist();
@@ -99,8 +104,8 @@ const ProductPage = () => {
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button variant="hero" size="lg" className="flex-1 text-base" onClick={handleAddToCart}>
-                <ShoppingBag className="w-5 h-5 mr-2" /> Add to Bag
+              <Button variant="hero" size="lg" className="flex-1 text-base" onClick={handleAddToCart} disabled={!product.inStock}>
+                <ShoppingBag className="w-5 h-5 mr-2" /> {product.inStock ? "Add to Bag" : "Out of Stock"}
               </Button>
               <Button
                 variant={wished ? "default" : "heroOutline"}

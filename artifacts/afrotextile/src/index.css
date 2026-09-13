@@ -69,6 +69,42 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-serif;
   }
+
+  .brand-lockup {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 2rem;
+  }
+
+  .brand-lockup-mark {
+    display: block;
+    width: 2rem;
+    height: 2rem;
+    object-fit: contain;
+    flex: 0 0 auto;
+  }
+
+  .brand-lockup-wordmark {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.92rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .brand-lockup-dark .brand-lockup-wordmark {
+    color: hsl(var(--ivory));
+  }
+
+  .brand-lockup-light .brand-lockup-wordmark {
+    color: hsl(var(--foreground));
+  }
+
+  .brand-lockup-compact .brand-lockup-wordmark {
+    font-size: 0.8rem;
+  }
 }
 
 @layer utilities {

@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
   FlatList,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -43,7 +44,14 @@ export default function ShopScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
-        <Text style={[styles.logo, { color: colors.gold }]}>AFROTEXTILE</Text>
+        <View style={styles.brandLockup} accessibilityLabel="Afrotextile">
+          <Image
+            source={require("@/assets/brand/threaded-a-compact.png")}
+            style={styles.brandMark}
+            accessibilityLabel="Afrotextile Threaded A mark"
+          />
+          <Text style={[styles.logo, { color: colors.foreground }]}>AFROTEXTILE</Text>
+        </View>
         <View style={[styles.searchBar, { backgroundColor: colors.muted, borderColor: colors.border }]}>
           <Ionicons name="search-outline" size={16} color={colors.mutedForeground} />
           <TextInput
@@ -131,9 +139,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   logo: {
-    fontSize: 20,
-    fontWeight: "800" as const,
-    letterSpacing: 4,
+    fontSize: 17,
+    fontWeight: "700" as const,
+    letterSpacing: 2.6,
+  },
+  brandLockup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    minHeight: 32,
+  },
+  brandMark: {
+    width: 32,
+    height: 32,
   },
   searchBar: {
     flexDirection: "row",

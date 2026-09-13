@@ -1,0 +1,98 @@
+[
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567801",
+    "position": 1,
+    "filepath": "src/pages/slides/Cover.tsx",
+    "title": "Cover",
+    "description": "Afrotextile — Where African Craft Meets Global Commerce",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567802",
+    "position": 2,
+    "filepath": "src/pages/slides/Problem.tsx",
+    "title": "The Problem",
+    "description": "African designers create for the world. The world cannot reach them.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567803",
+    "position": 3,
+    "filepath": "src/pages/slides/MarketOpportunity.tsx",
+    "title": "Market Opportunity",
+    "description": "A billion-dollar category with no premium home online",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567804",
+    "position": 4,
+    "filepath": "src/pages/slides/Solution.tsx",
+    "title": "Our Solution",
+    "description": "One platform. Every African designer. Every global buyer.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567805",
+    "position": 5,
+    "filepath": "src/pages/slides/Platform.tsx",
+    "title": "The Platform",
+    "description": "Web and mobile, built for discovery",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef123456780d",
+    "position": 6,
+    "filepath": "src/pages/slides/ProductDemo.tsx",
+    "title": "Product Demo",
+    "description": "Live today. Polished for launch.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567806",
+    "position": 7,
+    "filepath": "src/pages/slides/BusinessModel.tsx",
+    "title": "Business Model",
+    "description": "Three compounding revenue streams",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567807",
+    "position": 8,
+    "filepath": "src/pages/slides/VendorNetwork.tsx",
+    "title": "Vendor Network",
+    "description": "Six countries. Ten fabric traditions. One marketplace.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567808",
+    "position": 9,
+    "filepath": "src/pages/slides/SocialProof.tsx",
+    "title": "Social Proof",
+    "description": "Vendor testimonial — Adunni Couture",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567809",
+    "position": 10,
+    "filepath": "src/pages/slides/Competitive.tsx",
+    "title": "Competitive Position",
+    "description": "Built for this category. Not adapted to it.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567810",
+    "position": 11,
+    "filepath": "src/pages/slides/Team.tsx",
+    "title": "Founding Team",
+    "description": "Built by insiders who know both worlds",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567811",
+    "position": 12,
+    "filepath": "src/pages/slides/TheRaise.tsx",
+    "title": "The Raise",
+    "description": "$3M Seed Round with use of funds breakdown",
+    "speakerNotes": ""
+  }
+]

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Afrotextile — Global African fashion marketplace</title>
+  <desc id="desc">The Afrotextile Threaded A compact mark and wordmark on a thread ink background.</desc>
+  <rect width="1200" height="630" fill="#171513"/>
+  <path d="M0 560C230 490 420 590 650 520s350-20 550-80v190H0Z" fill="#3C6254" opacity=".32"/>
+  <g transform="translate(130 120) scale(1.55)">
+    <rect x="18" y="18" width="220" height="220" rx="48" fill="#171513" stroke="#D2A64C" stroke-width="3"/>
+    <path d="m67 188 47-122c2-6 26-6 28 0l47 122" fill="none" stroke="#D2A64C" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M87 151h82" fill="none" stroke="#D2A64C" stroke-width="22" stroke-linecap="round"/>
+    <path d="m91 188 37-99M165 188 128 89" fill="none" stroke="#F8F3EB" stroke-width="6" stroke-linecap="round" opacity=".95"/>
+  </g>
+  <text x="570" y="292" fill="#F8F3EB" font-family="Arial, sans-serif" font-size="68" font-weight="700" letter-spacing="14">AFROTEXTILE</text>
+  <text x="575" y="344" fill="#D2A64C" font-family="Arial, sans-serif" font-size="18" letter-spacing="7">INDEPENDENT AFRICAN FASHION</text>
+  <path d="M575 382h410" stroke="#D2A64C" stroke-width="2" opacity=".65"/>
+</svg>

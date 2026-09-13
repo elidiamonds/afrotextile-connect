@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Instagram, Facebook, MessageCircle } from "lucide-react";
+import { BrandLockup } from "@/components/BrandLockup";
 
 const Footer = () => {
   return (
@@ -7,7 +8,9 @@ const Footer = () => {
       <div className="container mx-auto px-4 py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
           <div className="md:col-span-1">
-            <h3 className="font-serif text-2xl font-bold text-gradient-gold mb-4">AFROTEXTILE</h3>
+            <div className="mb-4">
+              <BrandLockup />
+            </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Celebrating African heritage through fashion. Bold prints, luxurious textures, modern silhouettes.
             </p>
@@ -32,7 +35,7 @@ const Footer = () => {
               {[
                 { label: "About Us", to: "/about" },
                 { label: "Contact", to: "/contact" },
-                { label: "Vendor Portal", to: "/shop" },
+                { label: "Vendor Portal", to: "/vendor/portal" },
                 { label: "Careers", to: "/about" },
               ].map((item) => (
                 <li key={item.label}>

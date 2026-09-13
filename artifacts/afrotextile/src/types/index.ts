@@ -13,6 +13,7 @@ export interface Product {
   rating: number;
   reviews: number;
   inStock: boolean;
+  inventory?: number;
   isNew?: boolean;
   isTrending?: boolean;
 }

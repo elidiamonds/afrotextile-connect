@@ -10,6 +10,14 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: vendors
+    description: Vendor onboarding and storefront management
+  - name: products
+    description: Vendor catalog and marketplace products
+  - name: storage
+    description: Product image uploads and storage
+  - name: orders
+    description: Marketplace checkout and fulfillment
 paths:
   /healthz:
     get:
@@ -24,7 +32,520 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /vendors:
+    get:
+      operationId: listVendors
+      tags: [vendors]
+      summary: List vendor applications
+      parameters:
+        - in: query
+          name: status
+          schema:
+            $ref: "#/components/schemas/VendorStatus"
+      responses:
+        "200":
+          description: Vendor applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vendor"
+    post:
+      operationId: createVendor
+      tags: [vendors]
+      summary: Submit a vendor application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorInput"
+      responses:
+        "201":
+          description: Application submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+        "409":
+          description: Email already registered
+  /vendor-reviewers:
+    get:
+      operationId: listVendorReviewers
+      tags: [vendors]
+      summary: List users who can review vendor applications
+      parameters:
+        - in: query
+          name: search
+          description: Search by user name, email address, or Clerk user ID
+          schema:
+            type: string
+            maxLength: 100
+        - in: query
+          name: page
+          description: One-based page number
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10000
+            default: 1
+        - in: query
+          name: limit
+          description: Number of users to return per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 25
+      responses:
+        "200":
+          description: Users and vendor reviewer access
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorReviewerPage"
+        "401":
+          description: Sign in required
+        "403":
+          description: Admin access required
+  /vendor-reviewer-access-history:
+    get:
+      operationId: listVendorReviewerAccessHistory
+      tags: [vendors]
+      summary: List the vendor reviewer access audit history
+      responses:
+        "200":
+          description: Immutable reviewer access changes, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VendorReviewerAccessHistoryEntry"
+        "401":
+          description: Sign in required
+        "403":
+          description: Admin access required
+  /vendor-reviewers/{userId}:
+    patch:
+      operationId: updateVendorReviewer
+      tags: [vendors]
+      summary: Grant or revoke vendor reviewer access
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorReviewerUpdate"
+      responses:
+        "200":
+          description: Updated reviewer access
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorReviewer"
+        "401":
+          description: Sign in required
+        "403":
+          description: Admin access required
+        "404":
+          description: User not found
+  /vendors/me:
+    get:
+      operationId: getMyVendor
+      tags: [vendors]
+      summary: Get the signed-in user's vendor application
+      responses:
+        "200":
+          description: Current user's vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+        "401":
+          description: Sign in required
+        "404":
+          description: Current user has no vendor application
+  /vendors/{id}:
+    get:
+      operationId: getVendor
+      tags: [vendors]
+      summary: Get a vendor or application
+      parameters:
+        - $ref: "#/components/parameters/VendorId"
+      responses:
+        "200":
+          description: Vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+        "404":
+          description: Vendor not found
+    patch:
+      operationId: updateVendor
+      tags: [vendors]
+      summary: Update storefront details
+      parameters:
+        - $ref: "#/components/parameters/VendorId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorUpdate"
+      responses:
+        "200":
+          description: Updated vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+        "404":
+          description: Vendor not found
+  /vendors/{id}/status:
+    patch:
+      operationId: updateVendorStatus
+      tags: [vendors]
+      summary: Approve or reject a vendor application
+      parameters:
+        - $ref: "#/components/parameters/VendorId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorStatusUpdate"
+      responses:
+        "200":
+          description: Updated application
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+        "404":
+          description: Vendor not found
+  /vendors/{id}/products:
+    get:
+      operationId: listStorefrontProducts
+      tags: [products]
+      summary: List published products for an approved storefront
+      parameters:
+        - $ref: "#/components/parameters/VendorId"
+      responses:
+        "200":
+          description: Published storefront products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+        "404":
+          description: Approved storefront not found
+    post:
+      operationId: createProduct
+      tags: [products]
+      summary: Add a product to a vendor catalog
+      parameters:
+        - $ref: "#/components/parameters/VendorId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "201":
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "403":
+          description: Vendor is not approved or user is not the owner
+  /vendors/{id}/products/manage:
+    get:
+      operationId: listVendorProducts
+      tags: [products]
+      summary: List all products owned by a vendor
+      parameters:
+        - $ref: "#/components/parameters/VendorId"
+      responses:
+        "200":
+          description: Vendor catalog
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+        "403":
+          description: Vendor ownership required
+  /vendors/{id}/product-image-upload-url:
+    post:
+      operationId: requestProductImageUpload
+      tags: [storage]
+      summary: Request a presigned product image upload URL
+      parameters:
+        - $ref: "#/components/parameters/VendorId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductImageUploadInput"
+      responses:
+        "200":
+          description: Presigned upload URL and durable object path
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductImageUpload"
+        "403":
+          description: Approved vendor ownership required
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List published marketplace products
+      responses:
+        "200":
+          description: Published products from approved vendors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get a published marketplace product
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      responses:
+        "200":
+          description: Published product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Product not found
+    patch:
+      operationId: updateProduct
+      tags: [products]
+      summary: Edit, archive, or update stock for an owned product
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdate"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "403":
+          description: Vendor is not approved or user is not the owner
+  /products/{id}/history:
+    get:
+      operationId: listProductHistory
+      tags: [products]
+      summary: List the change history for a product
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      responses:
+        "200":
+          description: Product changes, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductHistoryEntry"
+        "401":
+          description: Sign in required
+        "403":
+          description: Vendor owner or reviewer access required
+        "404":
+          description: Product not found
+  /storefronts/{id}:
+    get:
+      operationId: getStorefront
+      tags: [vendors]
+      summary: Get an approved public storefront
+      parameters:
+        - $ref: "#/components/parameters/VendorId"
+      responses:
+        "200":
+          description: Public storefront
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Storefront"
+        "404":
+          description: Approved storefront not found
+  /orders:
+    get:
+      operationId: listOrders
+      tags: [orders]
+      summary: List the signed-in shopper's orders
+      responses:
+        "200":
+          description: Shopper order history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+        "401":
+          description: Sign in required
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Place an order and reserve inventory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderInput"
+      responses:
+        "201":
+          description: Order placed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          description: Invalid order or unavailable inventory
+        "401":
+          description: Sign in required
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get one of the signed-in shopper's orders
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: Shopper order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "401":
+          description: Sign in required
+        "404":
+          description: Order not found
+  /vendors/{id}/orders/manage:
+    get:
+      operationId: listVendorOrders
+      tags: [orders]
+      summary: List orders containing a vendor's products
+      parameters:
+        - $ref: "#/components/parameters/VendorId"
+      responses:
+        "200":
+          description: Vendor fulfillment orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VendorOrder"
+        "403":
+          description: Vendor ownership required
+  /vendors/{vendorId}/orders/{orderId}/items/{itemId}/status:
+    patch:
+      operationId: updateOrderItemStatus
+      tags: [orders]
+      summary: Update fulfillment status for a vendor's order item
+      parameters:
+        - $ref: "#/components/parameters/VendorOrderVendorId"
+        - $ref: "#/components/parameters/VendorOrderId"
+        - $ref: "#/components/parameters/OrderItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderItemStatusUpdate"
+      responses:
+        "200":
+          description: Updated shopper order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "403":
+          description: Vendor ownership required
+        "404":
+          description: Order item not found
 components:
+  parameters:
+    VendorId:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    ProductId:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    UserId:
+      in: path
+      name: userId
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    OrderId:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    OrderItemId:
+      in: path
+      name: itemId
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    VendorOrderVendorId:
+      in: path
+      name: vendorId
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    VendorOrderId:
+      in: path
+      name: orderId
+      required: true
+      schema:
+        type: string
+        minLength: 1
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +554,366 @@ components:
           type: string
       required:
         - status
-
+    VendorStatus:
+      type: string
+      enum: [pending, approved, rejected]
+    Vendor:
+      type: object
+      required:
+        - id
+        - businessName
+        - contactName
+        - email
+        - phone
+        - location
+        - category
+        - plan
+        - description
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id: { type: string }
+        businessName: { type: string }
+        contactName: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        location: { type: string }
+        category: { type: string }
+        plan: { type: string }
+        description: { type: string }
+        logoUrl: { type: ["string", "null"] }
+        status:
+          $ref: "#/components/schemas/VendorStatus"
+        reviewNote: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    VendorReviewer:
+      type: object
+      required:
+        [userId, email, firstName, lastName, isAdmin, vendorReviewer, updatedAt, updatedByUserId]
+      properties:
+        userId: { type: string }
+        email: { type: ["string", "null"], format: email }
+        firstName: { type: ["string", "null"] }
+        lastName: { type: ["string", "null"] }
+        isAdmin: { type: boolean }
+        vendorReviewer: { type: boolean }
+        updatedAt: { type: ["string", "null"], format: date-time }
+        updatedByUserId: { type: ["string", "null"] }
+    VendorReviewerPage:
+      type: object
+      required: [items, page, limit, totalCount, hasNextPage]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/VendorReviewer"
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1, maximum: 50 }
+        totalCount: { type: integer, minimum: 0 }
+        hasNextPage: { type: boolean }
+    VendorReviewerUpdate:
+      type: object
+      additionalProperties: false
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+    VendorReviewerAccessHistoryEntry:
+      type: object
+      required:
+        [id, targetUserId, actorUserId, targetUser, actorUser, action, changedAt]
+      properties:
+        id: { type: string }
+        targetUserId: { type: string }
+        actorUserId: { type: string }
+        targetUser:
+          $ref: "#/components/schemas/VendorReviewerAccessUser"
+        actorUser:
+          $ref: "#/components/schemas/VendorReviewerAccessUser"
+        action:
+          type: string
+          enum: [grant, revoke]
+        changedAt: { type: string, format: date-time }
+    VendorReviewerAccessUser:
+      type: object
+      required: [displayName, email]
+      properties:
+        displayName: { type: ["string", "null"] }
+        email: { type: ["string", "null"], format: email }
+    VendorInput:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          businessName,
+          contactName,
+          email,
+          phone,
+          location,
+          category,
+          plan,
+          description,
+        ]
+      properties:
+        businessName: { type: string, minLength: 2, maxLength: 120 }
+        contactName: { type: string, minLength: 2, maxLength: 120 }
+        email: { type: string, format: email, maxLength: 255 }
+        phone: { type: string, minLength: 7, maxLength: 30 }
+        location: { type: string, minLength: 2, maxLength: 160 }
+        category: { type: string, minLength: 2, maxLength: 80 }
+        plan: { type: string, enum: [Starter, Growth, Enterprise] }
+        description: { type: string, minLength: 20, maxLength: 1200 }
+        logoUrl: { type: string, maxLength: 1000 }
+    Storefront:
+      type: object
+      required:
+        [id, businessName, location, category, plan, description, status, products]
+      properties:
+        id: { type: string }
+        businessName: { type: string }
+        location: { type: string }
+        category: { type: string }
+        plan: { type: string }
+        description: { type: string }
+        logoUrl: { type: ["string", "null"] }
+        status:
+          type: string
+          enum: [approved]
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+    ProductStatus:
+      type: string
+      enum: [draft, published, archived]
+    Product:
+      type: object
+      required:
+        [
+          id,
+          vendorId,
+          name,
+          price,
+          category,
+          images,
+          sizes,
+          fabricType,
+          description,
+          rating,
+          reviews,
+          inStock,
+          inventory,
+          status,
+          vendor,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id: { type: string }
+        vendorId: { type: string }
+        name: { type: string }
+        price: { type: number, minimum: 0 }
+        originalPrice: { type: ["number", "null"], minimum: 0 }
+        images:
+          type: array
+          items: { type: string }
+        category: { type: string }
+        vendor: { type: string }
+        sizes:
+          type: array
+          items: { type: string }
+        fabricType: { type: string }
+        description: { type: string }
+        rating: { type: number }
+        reviews: { type: integer }
+        inStock: { type: boolean }
+        inventory: { type: integer, minimum: 0 }
+        status:
+          $ref: "#/components/schemas/ProductStatus"
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ProductInput:
+      type: object
+      additionalProperties: false
+      required: [name, price, category, fabricType, description, inventory]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 160 }
+        price: { type: number, minimum: 0 }
+        originalPrice: { type: ["number", "null"], minimum: 0 }
+        imageUrl: { type: string, maxLength: 1000 }
+        category: { type: string, minLength: 2, maxLength: 80 }
+        sizes:
+          type: array
+          items: { type: string, minLength: 1, maxLength: 30 }
+          maxItems: 20
+        fabricType: { type: string, minLength: 2, maxLength: 80 }
+        description: { type: string, minLength: 10, maxLength: 2000 }
+        inventory: { type: integer, minimum: 0, maximum: 1000000 }
+        status:
+          $ref: "#/components/schemas/ProductStatus"
+    ProductImageUploadInput:
+      type: object
+      additionalProperties: false
+      required: [name, size, contentType]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 255 }
+        size: { type: integer, minimum: 1, maximum: 10485760 }
+        contentType: { type: string, pattern: "^image/" }
+    ProductImageUpload:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL: { type: string, format: uri }
+        objectPath: { type: string, pattern: "^/objects/" }
+    ProductUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 2, maxLength: 160 }
+        price: { type: number, minimum: 0 }
+        originalPrice: { type: ["number", "null"], minimum: 0 }
+        imageUrl: { type: ["string", "null"], maxLength: 1000 }
+        category: { type: string, minLength: 2, maxLength: 80 }
+        sizes:
+          type: array
+          items: { type: string, minLength: 1, maxLength: 30 }
+          maxItems: 20
+        fabricType: { type: string, minLength: 2, maxLength: 80 }
+        description: { type: string, minLength: 10, maxLength: 2000 }
+        inventory: { type: integer, minimum: 0, maximum: 1000000 }
+        status:
+          $ref: "#/components/schemas/ProductStatus"
+    ProductHistoryEntry:
+      type: object
+      required: [id, productId, actorUserId, action, changes, changedAt]
+      properties:
+        id: { type: string }
+        productId: { type: string }
+        actorUserId: { type: string }
+        action:
+          type: string
+          enum: [created, edited, published, archived]
+        changes:
+          type: object
+          additionalProperties:
+            type: object
+            required: [from, to]
+            properties:
+              from: {}
+              to: {}
+        changedAt: { type: string, format: date-time }
+    OrderItemStatus:
+      type: string
+      enum: [pending, processing, shipped, delivered, cancelled]
+    OrderItem:
+      type: object
+      required:
+        [
+          id,
+          productId,
+          vendorId,
+          productName,
+          vendorName,
+          unitPrice,
+          quantity,
+          size,
+          fulfillmentStatus
+        ]
+      properties:
+        id: { type: string }
+        productId: { type: string }
+        vendorId: { type: string }
+        productName: { type: string }
+        vendorName: { type: string }
+        imageUrl: { type: ["string", "null"] }
+        unitPrice: { type: number, minimum: 0 }
+        quantity: { type: integer, minimum: 1 }
+        size: { type: string }
+        fulfillmentStatus:
+          $ref: "#/components/schemas/OrderItemStatus"
+    OrderStatus:
+      type: string
+      enum: [pending, processing, shipped, delivered, cancelled]
+    ShippingAddress:
+      type: object
+      required: [name, addressLine1, city, postalCode, country]
+      properties:
+        name: { type: string }
+        addressLine1: { type: string }
+        addressLine2: { type: ["string", "null"] }
+        city: { type: string }
+        state: { type: ["string", "null"] }
+        postalCode: { type: string }
+        country: { type: string }
+    OrderInputItem:
+      type: object
+      additionalProperties: false
+      required: [productId, quantity, size]
+      properties:
+        productId: { type: string, minLength: 1 }
+        quantity: { type: integer, minimum: 1, maximum: 100 }
+        size: { type: string, minLength: 1, maxLength: 30 }
+    OrderInput:
+      type: object
+      additionalProperties: false
+      required: [items, shippingAddress]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/OrderInputItem"
+        shippingAddress:
+          $ref: "#/components/schemas/ShippingAddress"
+    Order:
+      type: object
+      required:
+        [id, status, subtotal, shipping, total, shippingAddress, items, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        subtotal: { type: number, minimum: 0 }
+        shipping: { type: number, minimum: 0 }
+        total: { type: number, minimum: 0 }
+        shippingAddress:
+          $ref: "#/components/schemas/ShippingAddress"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    VendorOrder:
+      allOf:
+        - $ref: "#/components/schemas/Order"
+    OrderItemStatusUpdate:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/OrderItemStatus"
+    VendorUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        businessName: { type: string, minLength: 2, maxLength: 120 }
+        contactName: { type: string, minLength: 2, maxLength: 120 }
+        phone: { type: string, minLength: 7, maxLength: 30 }
+        location: { type: string, minLength: 2, maxLength: 160 }
+        category: { type: string, minLength: 2, maxLength: 80 }
+        plan: { type: string, enum: [Starter, Growth, Enterprise] }
+        description: { type: string, minLength: 20, maxLength: 1200 }
+        logoUrl: { type: ["string", "null"], maxLength: 1000 }
+    VendorStatusUpdate:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [approved, rejected]
+        reviewNote: { type: ["string", "null"], maxLength: 500 }

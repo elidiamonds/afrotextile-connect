@@ -4,7 +4,7 @@ import { ArrowRight, Search, Star, ShieldCheck, Truck, Globe, BadgeCheck, Quote,
 import { Button } from "@/components/ui/button";
 import ProductCard from "@/components/ProductCard";
 import { products, vendors, testimonials } from "@/data/mock";
-import heroMain from "@/assets/editorial-hero.jpg";
+import heroMain from "@/assets/afrotextile-boutique.jpg";
 import catFabrics from "@/assets/cat-fabrics.jpg";
 import catMen from "@/assets/editorial-men.jpg";
 import catWomen from "@/assets/editorial-women.jpg";
@@ -49,9 +49,9 @@ const HomePage = () => {
     <div className="min-h-screen">
       <section className="relative min-h-[92vh] flex items-center overflow-hidden">
         <div className="absolute inset-0">
-          <img src={heroMain} alt="Model wearing a contemporary African print ensemble" width={1600} height={1200} className="w-full h-full object-cover object-center" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/85 to-background/40" />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/30" />
+          <img src={heroMain} alt="Model wearing a vibrant African print look in a colorful fashion boutique" width={736} height={514} className="w-full h-full object-cover object-center" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/78 to-background/35" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/10 to-background/35" />
         </div>
 
         <div className="container mx-auto px-4 relative z-10 pt-16">

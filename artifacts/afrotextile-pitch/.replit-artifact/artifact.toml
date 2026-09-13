@@ -1,0 +1,31 @@
+kind = "slides"
+previewPath = "/afrotextile-pitch/"
+title = "Afrotextile Pitch Deck"
+version = "1.0.0"
+id = "artifacts/afrotextile-pitch"
+router = "path"
+
+[[integratedSkills]]
+name = "slides"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/afrotextile-pitch/" ]
+localPort = 19373
+
+[services.development]
+run = "pnpm --filter @workspace/afrotextile-pitch run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/afrotextile-pitch", "run", "build" ]
+publicDir = "artifacts/afrotextile-pitch/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19373"
+BASE_PATH = "/afrotextile-pitch/"

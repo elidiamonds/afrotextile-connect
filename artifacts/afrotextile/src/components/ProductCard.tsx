@@ -50,7 +50,9 @@ const ProductCard = ({ product }: ProductCardProps) => {
         <button
           onClick={() => addItem(product, product.sizes[0])}
           aria-label="Add to bag"
-          className="w-9 h-9 rounded-full bg-background/80 text-foreground hover:bg-primary hover:text-primary-foreground flex items-center justify-center backdrop-blur-sm transition-colors"
+          disabled={!product.inStock}
+          title={product.inStock ? "Add to bag" : "Out of stock"}
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur-sm transition-colors hover:bg-primary hover:text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ShoppingBag className="w-4 h-4" />
         </button>

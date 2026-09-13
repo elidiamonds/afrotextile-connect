@@ -2,14 +2,21 @@ import { useState, useMemo } from "react";
 import ProductCard from "@/components/ProductCard";
 import { products, categories, fabricTypes } from "@/data/mock";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useListProducts } from "@workspace/api-client-react";
+import { mapApiProduct } from "@/lib/product-mapper";
 
 const ShopPage = () => {
   const [category, setCategory] = useState("All");
   const [fabric, setFabric] = useState("All");
   const [sort, setSort] = useState("latest");
+  const { data: apiProducts, isLoading } = useListProducts();
+  const marketplaceProducts =
+    apiProducts === undefined
+      ? products
+      : apiProducts.map(mapApiProduct);
 
   const filtered = useMemo(() => {
-    let result = [...products];
+    let result = [...marketplaceProducts];
     if (category !== "All") result = result.filter((p) => p.category === category);
     if (fabric !== "All") result = result.filter((p) => p.fabricType === fabric);
     switch (sort) {
@@ -19,7 +26,7 @@ const ShopPage = () => {
       default: break;
     }
     return result;
-  }, [category, fabric, sort]);
+  }, [category, fabric, sort, marketplaceProducts]);
 
   return (
     <div className="min-h-screen pt-24 pb-16">
@@ -60,7 +67,9 @@ const ShopPage = () => {
           </Select>
         </div>
 
-        <p className="text-sm text-muted-foreground font-sans mb-6">{filtered.length} products</p>
+        <p className="text-sm text-muted-foreground font-sans mb-6">
+          {isLoading ? "Loading products…" : `${filtered.length} products`}
+        </p>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {filtered.map((product) => (
