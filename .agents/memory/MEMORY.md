@@ -1,0 +1,13 @@
+- [Workspace test build order](workspace-test-build-order.md) — rebuild shared TypeScript declarations before diagnosing focused package typecheck failures.
+- [Playwright browser runner](playwright-browser-runner.md) — use the Replit Chromium executable through launchOptions and keep video capture off when bundled ffmpeg is unavailable.
+- [Run-scoped database tests](run-scoped-database-tests.md) — tests that set DB_SCHEMA must dynamically import the database package after setting it.
+- [Expo web font gating](expo-web-font-gating.md) — keep native font gating, but let Expo web use a system fallback when font loading stalls or the package hook duplicates React.
+- [Clerk browser redirects](clerk-browser-redirects.md) — authenticated Clerk tests may leave /sign-up immediately; assert the real signed-in destination instead of an intermediate screen.
+- [PostgreSQL test schema names](postgresql-test-schema-names.md) — run-scoped schema names must stay within PostgreSQL’s 63-byte identifier limit, including timestamps and UUIDs.
+- [Drizzle test schema namespaces](drizzle-test-schema-namespaces.md) — schemaFilter alone does not namespace unqualified pgTable definitions.
+- [Vite artifact build environment](vite-artifact-build-environment.md) — direct production builds need the workflow-provided PORT and BASE_PATH values.
+- [Object deletion propagation](object-deletion-propagation.md) — deleted storage objects can briefly return 500 before settling to 404 in browser checks.
+- [Generated React Query keys](generated-react-query-keys.md) — pass the generated query key explicitly when supplying options to a generated query hook.
+- [Playwright database pool lifecycle](playwright-database-pool-lifecycle.md) — shared-worker browser specs must not close the singleton DB pool during per-file teardown.
+- [Afrotextile browser workflow dependencies](afrotextile-browser-workflow-dependencies.md) — browser coverage needs both the web and shared API workflows running before fixture-driven checks.
+- [GitHub workspace sync](github-workspace-sync.md) — direct origin pushes lack credentials; sync through the connected GitHub Git Data API without forcing main.
