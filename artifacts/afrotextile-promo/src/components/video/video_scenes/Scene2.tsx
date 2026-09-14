@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { sceneTransitions } from '@/lib/video/animations';
+import { BrandLockup } from '../BrandLockup';
 
 export function Scene2() {
   const [phase, setPhase] = useState(0);
@@ -69,6 +70,11 @@ export function Scene2() {
             <h3 className="text-[1.8vw] text-[var(--color-bg-dark)]" style={{ fontFamily: 'var(--font-display)' }}>Kente Maxi Gown</h3>
             <p className="text-[var(--color-secondary)] text-[1vw] mt-2">Woven Tradition</p>
           </motion.div>
+          <BrandLockup
+            variant="light"
+            size="micro"
+            className="absolute left-8 top-8 z-10 rounded-full bg-[var(--color-bg-light)]/90 px-3 py-2 backdrop-blur-md"
+          />
         </motion.div>
 
       </div>

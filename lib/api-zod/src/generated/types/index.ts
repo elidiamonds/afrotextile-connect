@@ -7,6 +7,8 @@
  */
 
 export * from './healthStatus';
+export * from './listProductsParams';
+export * from './listProductsSort';
 export * from './listVendorReviewersParams';
 export * from './listVendorsParams';
 export * from './order';

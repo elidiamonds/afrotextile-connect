@@ -519,3 +519,55 @@ page?: number;
 limit?: number;
 };
 
+export type ListProductsParams = {
+/**
+ * Search product names, descriptions, and vendor names
+ * @maxLength 120
+ */
+q?: string;
+/**
+ * @maxLength 80
+ */
+category?: string;
+/**
+ * @maxLength 80
+ */
+fabricType?: string;
+/**
+ * Match the vendor's city, region, or country
+ * @maxLength 120
+ */
+location?: string;
+/**
+ * @minimum 0
+ */
+minPrice?: number;
+/**
+ * @minimum 0
+ */
+maxPrice?: number;
+inStock?: boolean;
+sort?: ListProductsSort;
+/**
+ * One-based result page
+ * @minimum 1
+ */
+page?: number;
+/**
+ * Number of results per page
+ * @minimum 1
+ * @maximum 50
+ */
+limit?: number;
+};
+
+export type ListProductsSort = typeof ListProductsSort[keyof typeof ListProductsSort];
+
+
+export const ListProductsSort = {
+  latest: 'latest',
+  'price-asc': 'price-asc',
+  'price-desc': 'price-desc',
+  popular: 'popular',
+} as const;
+

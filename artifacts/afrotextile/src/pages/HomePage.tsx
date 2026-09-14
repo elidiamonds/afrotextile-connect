@@ -49,7 +49,7 @@ const HomePage = () => {
     <div className="min-h-screen">
       <section className="relative min-h-[92vh] flex items-center overflow-hidden">
         <div className="absolute inset-0">
-          <img src={heroMain} alt="Model wearing a vibrant African print look in a colorful fashion boutique" width={736} height={514} className="w-full h-full object-cover object-center" />
+          <img src={heroMain} alt="Model wearing a vibrant African print look in a colorful fashion boutique" width={736} height={514} className="w-full h-full object-cover object-center blur-sm scale-105" />
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/78 to-background/35" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/10 to-background/35" />
         </div>

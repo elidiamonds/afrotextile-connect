@@ -2,11 +2,10 @@ import { Readable } from "stream";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   ObjectNotFoundError,
-  ObjectStorageService,
+  objectStorageService,
 } from "../lib/objectStorage";
 
 const router: IRouter = Router();
-const objectStorageService = new ObjectStorageService();
 
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {

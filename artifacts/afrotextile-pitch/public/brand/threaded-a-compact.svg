@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Afrotextile Threaded A compact mark</title>
+  <desc id="desc">An abstract woven A inside a rounded square frame.</desc>
+  <rect x="18" y="18" width="220" height="220" rx="48" fill="#171513"/>
+  <path d="m67 188 47-122c2-6 26-6 28 0l47 122" fill="none" stroke="#D2A64C" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M87 151h82" fill="none" stroke="#D2A64C" stroke-width="22" stroke-linecap="round"/>
+  <path d="m91 188 37-99M165 188 128 89" fill="none" stroke="#F8F3EB" stroke-width="6" stroke-linecap="round" opacity=".95"/>
+</svg>

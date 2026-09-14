@@ -501,6 +501,47 @@ export const ListVendorProductsResponse = zod.array(ListVendorProductsResponseIt
 
 
 /**
+ * @summary List a vendor catalog for authorized review
+ */
+
+
+
+export const ListVendorProductsForReviewParams = zod.object({
+  "id": zod.coerce.string().min(1)
+})
+
+export const listVendorProductsForReviewResponsePriceMin = 0;
+
+export const listVendorProductsForReviewResponseOriginalPriceMin = 0;
+
+export const listVendorProductsForReviewResponseInventoryMin = 0;
+
+
+
+export const ListVendorProductsForReviewResponseItem = zod.object({
+  "id": zod.string(),
+  "vendorId": zod.string(),
+  "name": zod.string(),
+  "price": zod.number().min(listVendorProductsForReviewResponsePriceMin),
+  "originalPrice": zod.number().min(listVendorProductsForReviewResponseOriginalPriceMin).nullish(),
+  "images": zod.array(zod.string()),
+  "category": zod.string(),
+  "vendor": zod.string(),
+  "sizes": zod.array(zod.string()),
+  "fabricType": zod.string(),
+  "description": zod.string(),
+  "rating": zod.number(),
+  "reviews": zod.number(),
+  "inStock": zod.boolean(),
+  "inventory": zod.number().min(listVendorProductsForReviewResponseInventoryMin),
+  "status": zod.enum(['draft', 'published', 'archived']),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListVendorProductsForReviewResponse = zod.array(ListVendorProductsForReviewResponseItem)
+
+
+/**
  * @summary Request a presigned product image upload URL
  */
 
@@ -533,8 +574,41 @@ export const RequestProductImageUploadResponse = zod.object({
 
 
 /**
- * @summary List published marketplace products
+ * @summary Search and list published marketplace products
  */
+export const listProductsQueryQMax = 120;
+
+export const listProductsQueryCategoryMax = 80;
+
+export const listProductsQueryFabricTypeMax = 80;
+
+export const listProductsQueryLocationMax = 120;
+
+export const listProductsQueryMinPriceMin = 0;
+
+export const listProductsQueryMaxPriceMin = 0;
+
+export const listProductsQuerySortDefault = `latest`;
+export const listProductsQueryPageDefault = 1;
+
+export const listProductsQueryLimitDefault = 24;
+export const listProductsQueryLimitMax = 50;
+
+
+
+export const ListProductsQueryParams = zod.object({
+  "q": zod.coerce.string().max(listProductsQueryQMax).optional().describe('Search product names, descriptions, and vendor names'),
+  "category": zod.coerce.string().max(listProductsQueryCategoryMax).optional(),
+  "fabricType": zod.coerce.string().max(listProductsQueryFabricTypeMax).optional(),
+  "location": zod.coerce.string().max(listProductsQueryLocationMax).optional().describe('Match the vendor\'s city, region, or country'),
+  "minPrice": zod.coerce.number().min(listProductsQueryMinPriceMin).optional(),
+  "maxPrice": zod.coerce.number().min(listProductsQueryMaxPriceMin).optional(),
+  "inStock": zod.coerce.boolean().optional(),
+  "sort": zod.enum(['latest', 'price-asc', 'price-desc', 'popular']).default(listProductsQuerySortDefault),
+  "page": zod.coerce.number().min(1).default(listProductsQueryPageDefault).describe('One-based result page'),
+  "limit": zod.coerce.number().min(1).max(listProductsQueryLimitMax).default(listProductsQueryLimitDefault).describe('Number of results per page')
+})
+
 export const listProductsResponsePriceMin = 0;
 
 export const listProductsResponseOriginalPriceMin = 0;

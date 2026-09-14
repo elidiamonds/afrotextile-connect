@@ -233,6 +233,22 @@ export class ResponseParseError extends Error {
   }
 }
 
+export class NetworkError extends Error {
+  readonly name = "NetworkError";
+  readonly method: string;
+  readonly url: string;
+  readonly cause: unknown;
+
+  constructor(cause: unknown, requestInfo: { method: string; url: string }) {
+    super(`Network request failed while ${requestInfo.method} was in progress.`);
+    Object.setPrototypeOf(this, new.target.prototype);
+
+    this.method = requestInfo.method;
+    this.url = requestInfo.url;
+    this.cause = cause;
+  }
+}
+
 async function parseJsonBody(
   response: Response,
   requestInfo: { method: string; url: string },
@@ -360,7 +376,12 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  let response: Response;
+  try {
+    response = await fetch(input, { ...init, method, headers });
+  } catch (cause) {
+    throw new NetworkError(cause, requestInfo);
+  }
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

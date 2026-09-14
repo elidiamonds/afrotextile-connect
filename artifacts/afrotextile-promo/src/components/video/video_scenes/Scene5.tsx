@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { sceneTransitions } from '@/lib/video/animations';
+import { BrandLockup } from '../BrandLockup';
 
 export function Scene5() {
   const [phase, setPhase] = useState(0);
@@ -59,15 +60,14 @@ export function Scene5() {
           transition={{ duration: 0.8, ease: "easeInOut" }}
         />
 
-        <motion.h1 
-          className="text-[8vw] text-white leading-none tracking-tight"
-          style={{ fontFamily: 'var(--font-display)' }}
+        <motion.div
+          className="flex justify-center"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={phase >= 3 ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.95 }}
           transition={{ duration: 1.5, ease: "easeOut" }}
         >
-          AFROTEXTILE
-        </motion.h1>
+          <BrandLockup variant="compact" size="hero" />
+        </motion.div>
 
         <motion.p
           className="text-[1.5vw] text-[var(--color-primary)] mt-4 tracking-[0.4em] uppercase"

@@ -1,4 +1,6 @@
 export default function TheRaise() {
+  const base = import.meta.env.BASE_URL;
+
   return (
     <div className="w-screen h-screen overflow-hidden relative bg-bg">
       <div
@@ -39,12 +41,28 @@ export default function TheRaise() {
               18-month runway. Target: 100 vendor storefronts and mobile launch across three markets.
             </p>
           </div>
-          <p
-            className="font-body text-muted"
-            style={{ fontSize: "2.5vw" }}
-          >
-            invest@afrotextile.co
-          </p>
+          <div className="flex items-center gap-[1vw]">
+            <img
+              src={`${base}brand/threaded-a-dark.svg`}
+              crossOrigin="anonymous"
+              alt="Afrotextile Threaded A mark"
+              className="w-[3.2vw] h-[3.2vw] object-contain shrink-0"
+            />
+            <div>
+              <p
+                className="font-body font-bold text-text tracking-[0.16em]"
+                style={{ fontSize: "2vw" }}
+              >
+                AFROTEXTILE
+              </p>
+              <p
+                className="font-body text-muted"
+                style={{ fontSize: "2.2vw" }}
+              >
+                invest@afrotextile.co
+              </p>
+            </div>
+          </div>
         </div>
         <div className="flex-1 flex flex-col justify-center gap-[2vh]">
           <p

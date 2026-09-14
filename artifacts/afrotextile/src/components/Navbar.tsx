@@ -30,7 +30,7 @@ const Navbar = () => {
           aria-label="Afrotextile home"
           className="shrink-0"
         >
-          <BrandLockup tone="dark" />
+          <BrandLockup tone="dark" compact />
         </Link>
 
         {/* Desktop nav */}

@@ -11,8 +11,9 @@ if (!process.env.DATABASE_URL) {
 }
 
 const databaseSchema = process.env.DB_SCHEMA?.trim();
+const simplePostgresIdentifier = /^[a-z_][a-z0-9_]*$/i;
 
-if (databaseSchema && !/^[a-z_][a-z0-9_]*$/i.test(databaseSchema)) {
+if (databaseSchema && !simplePostgresIdentifier.test(databaseSchema)) {
   throw new Error(
     "DB_SCHEMA must be a simple PostgreSQL identifier when provided.",
   );
@@ -25,5 +26,28 @@ export const pool = new Pool({
     : {}),
 });
 export const db = drizzle(pool, { schema });
+
+export async function assertDatabaseSchema(expectedSchema: string) {
+  const normalizedExpectedSchema = expectedSchema.trim();
+
+  if (!simplePostgresIdentifier.test(normalizedExpectedSchema)) {
+    throw new Error(
+      "Expected database schema must be a simple PostgreSQL identifier.",
+    );
+  }
+
+  const result = await pool.query<{ schemaName: string | null }>(
+    'SELECT current_schema() AS "schemaName"',
+  );
+  const actualSchema = result.rows[0]?.schemaName ?? null;
+
+  if (actualSchema !== normalizedExpectedSchema) {
+    throw new Error(
+      `Database schema mismatch: expected current_schema() to be ` +
+        `"${normalizedExpectedSchema}" but got "${actualSchema ?? "null"}". ` +
+        "Refusing to continue; verify DB_SCHEMA is set before importing @workspace/db.",
+    );
+  }
+}
 
 export * from "./schema";

@@ -285,6 +285,28 @@ paths:
                   $ref: "#/components/schemas/Product"
         "403":
           description: Vendor ownership required
+  /vendors/{id}/products/review:
+    get:
+      operationId: listVendorProductsForReview
+      tags: [products]
+      summary: List a vendor catalog for authorized review
+      parameters:
+        - $ref: "#/components/parameters/VendorId"
+      responses:
+        "200":
+          description: All products in the vendor catalog, including drafts and archived products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+        "401":
+          description: Sign in required
+        "403":
+          description: Vendor owner or reviewer access required
+        "404":
+          description: Vendor not found
   /vendors/{id}/product-image-upload-url:
     post:
       operationId: requestProductImageUpload
@@ -311,7 +333,45 @@ paths:
     get:
       operationId: listProducts
       tags: [products]
-      summary: List published marketplace products
+      summary: Search and list published marketplace products
+      parameters:
+        - in: query
+          name: q
+          description: Search product names, descriptions, and vendor names
+          schema: { type: string, maxLength: 120 }
+        - in: query
+          name: category
+          schema: { type: string, maxLength: 80 }
+        - in: query
+          name: fabricType
+          schema: { type: string, maxLength: 80 }
+        - in: query
+          name: location
+          description: Match the vendor's city, region, or country
+          schema: { type: string, maxLength: 120 }
+        - in: query
+          name: minPrice
+          schema: { type: number, minimum: 0 }
+        - in: query
+          name: maxPrice
+          schema: { type: number, minimum: 0 }
+        - in: query
+          name: inStock
+          schema: { type: boolean }
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [latest, price-asc, price-desc, popular]
+            default: latest
+        - in: query
+          name: page
+          description: One-based result page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: limit
+          description: Number of results per page
+          schema: { type: integer, minimum: 1, maximum: 50, default: 24 }
       responses:
         "200":
           description: Published products from approved vendors
@@ -321,6 +381,10 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Product"
+          headers:
+            X-Has-Next-Page:
+              description: Whether another result page is available
+              schema: { type: boolean }
   /products/{id}:
     get:
       operationId: getProduct

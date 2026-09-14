@@ -21,6 +21,7 @@ import type {
 
 import type {
   HealthStatus,
+  ListProductsParams,
   ListVendorReviewersParams,
   ListVendorsParams,
   Order,
@@ -1056,6 +1057,83 @@ export function useListVendorProducts<TData = Awaited<ReturnType<typeof listVend
 
 
 
+export const getListVendorProductsForReviewUrl = (id: string,) => {
+
+
+
+
+  return `/api/vendors/${id}/products/review`
+}
+
+/**
+ * @summary List a vendor catalog for authorized review
+ */
+export const listVendorProductsForReview = async (id: string, options?: RequestInit): Promise<Product[]> => {
+
+  return customFetch<Product[]>(getListVendorProductsForReviewUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListVendorProductsForReviewQueryKey = (id: string,) => {
+    return [
+    `/api/vendors/${id}/products/review`
+    ] as const;
+    }
+
+
+export const getListVendorProductsForReviewQueryOptions = <TData = Awaited<ReturnType<typeof listVendorProductsForReview>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listVendorProductsForReview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListVendorProductsForReviewQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listVendorProductsForReview>>> = ({ signal }) => listVendorProductsForReview(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listVendorProductsForReview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListVendorProductsForReviewQueryResult = NonNullable<Awaited<ReturnType<typeof listVendorProductsForReview>>>
+export type ListVendorProductsForReviewQueryError = ErrorType<void>
+
+
+/**
+ * @summary List a vendor catalog for authorized review
+ */
+
+export function useListVendorProductsForReview<TData = Awaited<ReturnType<typeof listVendorProductsForReview>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listVendorProductsForReview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListVendorProductsForReviewQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getRequestProductImageUploadUrl = (id: string,) => {
 
 
@@ -1127,20 +1205,27 @@ export const useRequestProductImageUpload = <TError = ErrorType<void>,
       return useMutation(getRequestProductImageUploadMutationOptions(options));
     }
 
-export const getListProductsUrl = () => {
+export const getListProductsUrl = (params?: ListProductsParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/products`
+  return stringifiedParams.length > 0 ? `/api/products?${stringifiedParams}` : `/api/products`
 }
 
 /**
- * @summary List published marketplace products
+ * @summary Search and list published marketplace products
  */
-export const listProducts = async ( options?: RequestInit): Promise<Product[]> => {
+export const listProducts = async (params?: ListProductsParams, options?: RequestInit): Promise<Product[]> => {
 
-  return customFetch<Product[]>(getListProductsUrl(),
+  return customFetch<Product[]>(getListProductsUrl(params),
   {
     ...options,
     method: 'GET'
@@ -1153,23 +1238,23 @@ export const listProducts = async ( options?: RequestInit): Promise<Product[]> =
 
 
 
-export const getListProductsQueryKey = () => {
+export const getListProductsQueryKey = (params?: ListProductsParams,) => {
     return [
-    `/api/products`
+    `/api/products`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListProductsQueryOptions = <TData = Awaited<ReturnType<typeof listProducts>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProducts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListProductsQueryOptions = <TData = Awaited<ReturnType<typeof listProducts>>, TError = ErrorType<unknown>>(params?: ListProductsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProducts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListProductsQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListProductsQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProducts>>> = ({ signal }) => listProducts({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProducts>>> = ({ signal }) => listProducts(params, { signal, ...requestOptions });
 
 
 
@@ -1183,15 +1268,15 @@ export type ListProductsQueryError = ErrorType<unknown>
 
 
 /**
- * @summary List published marketplace products
+ * @summary Search and list published marketplace products
  */
 
 export function useListProducts<TData = Awaited<ReturnType<typeof listProducts>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProducts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: ListProductsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProducts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListProductsQueryOptions(options)
+  const queryOptions = getListProductsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -5,16 +5,19 @@ import {
   getListProductsQueryKey,
   getListProductHistoryQueryKey,
   getListVendorProductsQueryKey,
+  getListVendorProductsForReviewQueryKey,
   requestProductImageUpload,
   type Product,
   type ProductHistoryEntry,
   useCreateProduct,
   useListProductHistory,
   useListVendorProducts,
+  useListVendorProductsForReview,
   useUpdateProduct,
 } from "@workspace/api-client-react";
 import { History } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 
 type ProductForm = {
@@ -157,25 +160,73 @@ function productToForm(product: Product): ProductForm {
   };
 }
 
+function uploadFileWithProgress(
+  uploadURL: string,
+  file: File,
+  onProgress: (progress: number) => void,
+) {
+  return new Promise<void>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("PUT", uploadURL);
+    request.setRequestHeader("Content-Type", file.type);
+    request.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    });
+    request.addEventListener("load", () => {
+      if (request.status >= 200 && request.status < 300) {
+        onProgress(100);
+        resolve();
+        return;
+      }
+      reject(new Error(`Image upload failed (${request.status})`));
+    });
+    request.addEventListener("error", () => {
+      reject(new Error("Network error while uploading the image."));
+    });
+    request.addEventListener("abort", () => {
+      reject(new Error("Image upload was canceled."));
+    });
+    request.send(file);
+  });
+}
+
 export default function VendorProductManager({
   vendorId,
   approved,
+  reviewOnly = false,
 }: {
   vendorId: string;
   approved: boolean;
+  reviewOnly?: boolean;
 }) {
-  const { data: products = [], isLoading, isError } = useListVendorProducts(
+  const managedCatalogQuery = useListVendorProducts(
     vendorId,
     {
       query: {
         queryKey: getListVendorProductsQueryKey(vendorId),
-        enabled: approved,
+        enabled: approved && !reviewOnly,
       },
     },
   );
+  const reviewCatalogQuery = useListVendorProductsForReview(vendorId, {
+    query: {
+      queryKey: getListVendorProductsForReviewQueryKey(vendorId),
+      enabled: approved && reviewOnly,
+    },
+  });
+  const catalogQuery = reviewOnly ? reviewCatalogQuery : managedCatalogQuery;
+  const products = catalogQuery.data ?? [];
+  const { isLoading, isError } = catalogQuery;
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [failedImageUpload, setFailedImageUpload] = useState<{
+    file: File;
+    message: string;
+  } | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -264,11 +315,7 @@ export default function VendorProductManager({
       ? `/api/storage${imageReference}`
       : imageReference;
 
-  const uploadImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-
+  const uploadImageFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast({
         title: "Choose an image file",
@@ -287,49 +334,59 @@ export default function VendorProductManager({
     }
 
     setUploadingImage(true);
+    setUploadProgress(0);
+    setFailedImageUpload(null);
     let objectPath = "";
     try {
-      const upload = await requestProductImageUpload(
-        vendorId,
-        {
-          name: file.name,
-          size: file.size,
-          contentType: file.type,
-        },
-      );
-      objectPath = upload.objectPath;
-      const uploadResponse = await fetch(upload.uploadURL, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
+      const upload = await requestProductImageUpload(vendorId, {
+        name: file.name,
+        size: file.size,
+        contentType: file.type,
       });
-      if (!uploadResponse.ok) {
-        throw new Error("The image could not be uploaded.");
-      }
+      objectPath = upload.objectPath;
+      await uploadFileWithProgress(upload.uploadURL, file, setUploadProgress);
       setForm((current) => ({
         ...current,
         imageUrl: upload.objectPath,
         imageName: file.name,
       }));
-      toast({ title: "Photo uploaded", description: "Save the product to apply it." });
+      setFailedImageUpload(null);
+      toast({
+        title: "Photo uploaded",
+        description: "Save the product to apply it.",
+      });
     } catch (error) {
       if (objectPath) {
         void deleteUploadedImage(objectPath);
       }
+      const message =
+        error instanceof Error
+          ? error.message
+          : "The image could not be uploaded. Try again.";
+      setFailedImageUpload({ file, message });
       toast({
         title: "Could not upload photo",
-        description: error instanceof Error ? error.message : undefined,
+        description: message,
         variant: "destructive",
       });
     } finally {
       setUploadingImage(false);
+      setUploadProgress(null);
     }
+  };
+
+  const uploadImage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (file) void uploadImageFile(file);
   };
 
   const cancelForm = () => {
     if (form.imageUrl) {
       void deleteUploadedImage(form.imageUrl);
     }
+    setUploadProgress(null);
+    setFailedImageUpload(null);
     setEditingId(null);
     setForm(emptyForm);
   };
@@ -391,24 +448,28 @@ export default function VendorProductManager({
     <section className="space-y-6 rounded-sm border border-border bg-card p-6 md:p-10">
       <div>
         <span className="font-sans text-xs uppercase tracking-[0.3em] text-primary">
-          Catalog
+          {reviewOnly ? "Vendor catalog" : "Catalog"}
         </span>
         <h2 className="mt-2 font-serif text-2xl font-bold">
-          Products and inventory
+          {reviewOnly ? "Products and change history" : "Products and inventory"}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Add products, update stock, or archive pieces you no longer sell.
+          {reviewOnly
+            ? "Review every catalog item, including drafts and archived products, with its recorded changes."
+            : "Add products, update stock, or archive pieces you no longer sell."}
         </p>
       </div>
 
       {!approved ? (
         <div className="border border-primary/30 bg-primary/5 p-5 text-sm leading-6 text-muted-foreground">
-          Product publishing unlocks after your vendor application is approved.
-          You can return here as soon as the review is complete.
+          {reviewOnly
+            ? "The catalog becomes available after the vendor application is approved."
+            : "Product publishing unlocks after your vendor application is approved. You can return here as soon as the review is complete."}
         </div>
       ) : (
         <>
-          <form onSubmit={submit} className="space-y-5 border-b border-border pb-8">
+          {!reviewOnly && (
+            <form onSubmit={submit} className="space-y-5 border-b border-border pb-8">
             <div className="grid gap-5 md:grid-cols-2">
               <label className="text-sm text-foreground">
                 Product name
@@ -503,7 +564,7 @@ export default function VendorProductManager({
                     className="h-20 w-20 object-cover"
                   />
                 )}
-                <div className="space-y-1">
+                <div className="space-y-2">
                   <label className="inline-flex cursor-pointer items-center border border-primary px-4 py-2 text-sm text-primary transition-colors hover:bg-primary/5">
                     <input
                       className="sr-only"
@@ -513,14 +574,77 @@ export default function VendorProductManager({
                       disabled={busy}
                     />
                     {uploadingImage
-                      ? "Uploading…"
-                      : form.imageUrl
-                        ? "Replace photo"
-                        : "Choose photo"}
+                      ? "Upload in progress…"
+                      : failedImageUpload
+                        ? "Choose a different photo"
+                        : form.imageUrl
+                          ? "Replace photo"
+                          : "Choose photo"}
                   </label>
                   <p className="text-xs text-muted-foreground">
                     {form.imageName || "JPG, PNG, or WebP · up to 10 MB"}
                   </p>
+                  {uploadingImage && (
+                    <div
+                      className="w-full min-w-56 max-w-sm space-y-2"
+                      role="status"
+                      aria-live="polite"
+                      aria-busy="true"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
+                        <span className="font-medium text-foreground">
+                          Uploading product photo…
+                        </span>
+                        <span className="text-muted-foreground">
+                          {uploadProgress ?? 0}%
+                        </span>
+                      </div>
+                      <Progress
+                        value={uploadProgress ?? 0}
+                        aria-label="Photo upload progress"
+                        className="h-2"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Save product will be available when the upload finishes.
+                      </p>
+                    </div>
+                  )}
+                  {!uploadingImage &&
+                    form.imageUrl &&
+                    form.imageName &&
+                    !failedImageUpload && (
+                      <p
+                        className="text-xs text-primary"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        Photo uploaded. Save the product to apply it.
+                      </p>
+                    )}
+                  {failedImageUpload && (
+                    <div
+                      className="space-y-2 border border-destructive/40 bg-destructive/5 p-3 text-xs"
+                      role="alert"
+                    >
+                      <p className="font-medium text-destructive">
+                        Photo upload failed. Your product details are still
+                        here.
+                      </p>
+                      <p className="text-muted-foreground">
+                        {failedImageUpload.message}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() =>
+                          void uploadImageFile(failedImageUpload.file)
+                        }
+                        disabled={busy}
+                      >
+                        Retry this photo
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -554,11 +678,13 @@ export default function VendorProductManager({
                 </select>
               </label>
               <Button type="submit" variant="hero" disabled={busy}>
-                {busy
-                  ? "Saving…"
-                  : editingId
-                    ? "Save product"
-                    : "Add product"}
+                {uploadingImage
+                  ? "Upload in progress…"
+                  : busy
+                    ? "Saving…"
+                    : editingId
+                      ? "Save product"
+                      : "Add product"}
               </Button>
               {(editingId || form.imageUrl) && (
                 <Button
@@ -572,19 +698,24 @@ export default function VendorProductManager({
                 </Button>
               )}
             </div>
-          </form>
+            </form>
+          )}
 
           {isLoading && (
             <p className="text-sm text-muted-foreground">Loading catalog…</p>
           )}
           {isError && (
             <p className="text-sm text-destructive">
-              Your catalog could not be loaded.
+              {reviewOnly
+                ? "This vendor catalog could not be loaded."
+                : "Your catalog could not be loaded."}
             </p>
           )}
           {!isLoading && !isError && products.length === 0 && (
             <div className="border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-              Your catalog is empty. Add your first product above.
+              {reviewOnly
+                ? "This vendor has no catalog products yet."
+                : "Your catalog is empty. Add your first product above."}
             </div>
           )}
           <div className="space-y-3">
@@ -617,27 +748,29 @@ export default function VendorProductManager({
                       </p>
                     </div>
                   </div>
-                  <div className="flex shrink-0 gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditingId(product.id)}
-                    >
-                      Edit
-                    </Button>
-                    {product.status !== "archived" && (
+                  {!reviewOnly && (
+                    <div className="flex shrink-0 gap-2">
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        disabled={busy}
-                        onClick={() => archive(product)}
+                        onClick={() => setEditingId(product.id)}
                       >
-                        Archive
+                        Edit
                       </Button>
-                    )}
-                  </div>
+                      {product.status !== "archived" && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => archive(product)}
+                        >
+                          Archive
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <ProductHistory productId={product.id} />
               </article>

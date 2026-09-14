@@ -9,6 +9,7 @@ type RequestResult = { status: number; body: string };
 const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const firstVendorEmail = `afrotextile-catalog-owner-${runId}@example.com`;
 const secondVendorEmail = `afrotextile-catalog-other-${runId}@example.com`;
+const adminEmail = `afrotextile-catalog-admin-${runId}@example.com`;
 const fixturePassword = `Afrotextile-${runId}-fixture!`;
 const clerkApiUrl = process.env.CLERK_API_URL ?? "https://api.clerk.com/v1";
 const clerkSecretKey = process.env.CLERK_SECRET_KEY;
@@ -18,9 +19,11 @@ const secondVendorName = "Ochre Looms Browser Fixture";
 const firstProductName = "Indigo ownership-check wrap";
 const secondProductName = "Ochre ownership-check cloth";
 const editedProductName = "Indigo ownership-check wrap edited";
+const adminEditedProductName = "Indigo administrator-managed wrap";
 
 let firstVendorUser: ClerkUser;
 let secondVendorUser: ClerkUser;
+let adminUser: ClerkUser;
 let firstVendorId: string;
 let secondVendorId: string;
 let firstProductId: string;
@@ -43,7 +46,10 @@ async function clerkApi(
   });
 }
 
-async function createClerkFixture(emailAddress: string): Promise<ClerkUser> {
+async function createClerkFixture(
+  emailAddress: string,
+  publicMetadata: Record<string, string> = {},
+): Promise<ClerkUser> {
   const response = await clerkApi("/users", {
     method: "POST",
     body: JSON.stringify({
@@ -51,6 +57,7 @@ async function createClerkFixture(emailAddress: string): Promise<ClerkUser> {
       password: fixturePassword,
       first_name: "Afrotextile",
       last_name: "Catalog Fixture",
+      public_metadata: publicMetadata,
     }),
   });
 
@@ -152,6 +159,7 @@ test.describe("vendor catalog ownership", () => {
   test.beforeAll(async () => {
     firstVendorUser = await createClerkFixture(firstVendorEmail);
     secondVendorUser = await createClerkFixture(secondVendorEmail);
+    adminUser = await createClerkFixture(adminEmail, { role: "admin" });
     firstVendorId = await createVendor(
       firstVendorUser.id,
       firstVendorEmail,
@@ -180,6 +188,7 @@ test.describe("vendor catalog ownership", () => {
     await Promise.all([
       deleteClerkFixture(firstVendorUser?.id),
       deleteClerkFixture(secondVendorUser?.id),
+      deleteClerkFixture(adminUser?.id),
     ]);
     await pool.end();
   });
@@ -227,6 +236,48 @@ test.describe("vendor catalog ownership", () => {
       ).toContainText("published");
     });
 
+    await test.step("an administrator can inspect and update the approved vendor catalog", async () => {
+      const adminContext = await browser.newContext();
+      const adminPage = await adminContext.newPage();
+      try {
+        await signInFixture(adminPage, adminEmail);
+        await adminPage.goto(`/vendor/dashboard/${firstVendorId}`);
+
+        await expect(
+          adminPage.getByRole("heading", { name: firstVendorName }),
+        ).toBeVisible();
+        const adminProductManager = adminPage
+          .locator("section")
+          .filter({ hasText: "Products and inventory" });
+        const adminProductCard = adminProductManager
+          .locator("article")
+          .filter({ hasText: editedProductName });
+        await expect(adminProductCard).toBeVisible();
+
+        await adminProductCard.getByRole("button", { name: "Edit" }).click();
+        await adminProductManager
+          .getByLabel("Product name")
+          .fill(adminEditedProductName);
+        const updateResponse = adminPage.waitForResponse(
+          (response) =>
+            response.request().method() === "PATCH" &&
+            response.url().includes(`/api/products/${firstProductId}`),
+        );
+        await adminProductManager
+          .getByRole("button", { name: "Save product" })
+          .click();
+        const response = await updateResponse;
+        expect(response.status(), await response.text()).toBe(200);
+        await expect(
+          adminProductManager
+            .locator("article")
+            .filter({ hasText: adminEditedProductName }),
+        ).toContainText("published");
+      } finally {
+        await adminContext.close();
+      }
+    });
+
     await test.step("the second vendor can see only its own catalog", async () => {
       const secondVendorContext = await browser.newContext();
       const secondVendorPage = await secondVendorContext.newPage();
@@ -244,7 +295,9 @@ test.describe("vendor catalog ownership", () => {
             .locator("article")
             .filter({ hasText: secondProductName }),
         ).toBeVisible();
-        await expect(secondProductManager).not.toContainText(editedProductName);
+        await expect(secondProductManager).not.toContainText(
+          adminEditedProductName,
+        );
       } finally {
         await secondVendorContext.close();
       }
@@ -255,6 +308,16 @@ test.describe("vendor catalog ownership", () => {
       const secondVendorPage = await secondVendorContext.newPage();
       try {
         await signInFixture(secondVendorPage, secondVendorEmail);
+        let deniedVendorRequestCount = 0;
+        const countDeniedVendorRequests = (request: Request) => {
+          if (
+            request.method() === "GET" &&
+            request.url().includes(`/api/vendors/${firstVendorId}`)
+          ) {
+            deniedVendorRequestCount += 1;
+          }
+        };
+        secondVendorPage.on("request", countDeniedVendorRequests);
         const deniedVendorResponse = secondVendorPage.waitForResponse(
           (response) =>
             response.request().method() === "GET" &&
@@ -262,6 +325,7 @@ test.describe("vendor catalog ownership", () => {
         );
         await secondVendorPage.goto(`/vendor/dashboard/${firstVendorId}`);
         expect((await deniedVendorResponse).status()).toBe(403);
+        expect(deniedVendorRequestCount).toBe(1);
         await expect(
           secondVendorPage.getByText("Vendor dashboard not found.", {
             exact: true,
@@ -274,6 +338,9 @@ test.describe("vendor catalog ownership", () => {
           "GET",
         );
         expect(manageResponse.status).toBe(403);
+        expect(manageResponse.body).toContain(
+          "You cannot manage this vendor catalog.",
+        );
 
         const editResponse = await requestAsUser(
           secondVendorPage,
@@ -282,6 +349,7 @@ test.describe("vendor catalog ownership", () => {
           { name: "Cross-vendor edit", status: "published" },
         );
         expect(editResponse.status).toBe(403);
+        expect(editResponse.body).toContain("You cannot manage this product.");
 
         const publishResponse = await requestAsUser(
           secondVendorPage,
@@ -299,6 +367,9 @@ test.describe("vendor catalog ownership", () => {
           },
         );
         expect(publishResponse.status).toBe(403);
+        expect(publishResponse.body).toContain(
+          "You cannot manage this vendor catalog.",
+        );
       } finally {
         await secondVendorContext.close();
       }

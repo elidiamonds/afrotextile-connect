@@ -30,7 +30,12 @@ const emptyForm: VendorForm = {
 
 export default function VendorDashboardPage() {
   const { id = "" } = useParams();
-  const { data: vendor, isLoading, isError } = useGetVendor(id);
+  const { data: vendor, isLoading, isError } = useGetVendor(id, {
+    query: {
+      queryKey: getGetVendorQueryKey(id),
+      retry: (_failureCount, error) => error.status !== 403,
+    },
+  });
   const [form, setForm] = useState<VendorForm>(emptyForm);
   const queryClient = useQueryClient();
   const { toast } = useToast();

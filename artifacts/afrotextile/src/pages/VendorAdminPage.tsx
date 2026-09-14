@@ -1,6 +1,7 @@
 import { keepPreviousData, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
-import { useDeferredValue, useState } from "react";
+import { useDeferredValue, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Check,
   ChevronLeft,
@@ -24,6 +25,7 @@ import {
 } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import VendorProductManager from "@/components/VendorProductManager";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
@@ -36,11 +38,30 @@ function hasStatus(error: unknown, statuses: number[]) {
   );
 }
 
+const reviewerSearchParam = "search";
+const reviewerPageParam = "page";
+const reviewerPageMax = 10_000;
+const reviewerSearchMaxLength = 100;
+
+function parseReviewerPage(value: string | null) {
+  if (!value) return 1;
+
+  const page = Number(value);
+  return Number.isInteger(page) && page >= 1 && page <= reviewerPageMax
+    ? page
+    : 1;
+}
+
 export default function VendorAdminPage() {
   const { user } = useUser();
   const isAdmin = user?.publicMetadata?.role === "admin";
-  const [reviewerSearch, setReviewerSearch] = useState("");
-  const [reviewerPage, setReviewerPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const reviewerSearchParamValue = searchParams.get(reviewerSearchParam) ?? "";
+  const reviewerSearch = reviewerSearchParamValue.slice(
+    0,
+    reviewerSearchMaxLength,
+  );
+  const reviewerPage = parseReviewerPage(searchParams.get(reviewerPageParam));
   const deferredReviewerSearch = useDeferredValue(reviewerSearch);
   const reviewerSearchQuery = deferredReviewerSearch.trim() || undefined;
   const reviewerPageSize = 25;
@@ -107,6 +128,82 @@ export default function VendorAdminPage() {
     ? Math.max(1, Math.ceil(reviewerPageData.totalCount / reviewerPageData.limit))
     : 1;
   const applicationsDenied = hasStatus(vendorsQuery.error, [401, 403]);
+
+  useEffect(() => {
+    const normalizedPage = reviewerPageData
+      ? Math.min(reviewerPage, reviewerTotalPages)
+      : reviewerPage;
+    const shouldNormalizeSearch =
+      reviewerSearchParamValue.length > reviewerSearchMaxLength;
+    const shouldNormalizePage =
+      searchParams.has(reviewerPageParam) &&
+      searchParams.get(reviewerPageParam) !== String(normalizedPage);
+
+    if (!shouldNormalizeSearch && !shouldNormalizePage) return;
+
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (shouldNormalizeSearch) {
+          if (reviewerSearch) {
+            next.set(reviewerSearchParam, reviewerSearch);
+          } else {
+            next.delete(reviewerSearchParam);
+          }
+        }
+        if (shouldNormalizePage) {
+          if (normalizedPage === 1) {
+            next.set(reviewerPageParam, "1");
+          } else {
+            next.set(reviewerPageParam, String(normalizedPage));
+          }
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  }, [
+    reviewerPage,
+    reviewerPageData,
+    reviewerSearch,
+    reviewerSearchParamValue,
+    reviewerTotalPages,
+    searchParams,
+    setSearchParams,
+  ]);
+
+  const updateReviewerSearch = (value: string) => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        const boundedValue = value.slice(0, reviewerSearchMaxLength);
+        if (boundedValue) {
+          next.set(reviewerSearchParam, boundedValue);
+        } else {
+          next.delete(reviewerSearchParam);
+        }
+        next.delete(reviewerPageParam);
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
+  const updateReviewerPage = (page: number, replace = false) => {
+    const boundedPage = Math.min(reviewerTotalPages, Math.max(1, page));
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (boundedPage === 1) {
+          next.delete(reviewerPageParam);
+        } else {
+          next.set(reviewerPageParam, String(boundedPage));
+        }
+        return next;
+      },
+      { replace },
+    );
+  };
 
   return (
     <div className="min-h-screen px-4 pb-16 pt-28">
@@ -222,6 +319,15 @@ export default function VendorAdminPage() {
                   </Button>
                 </div>
               </div>
+              {vendor.status === "approved" && (
+                <div className="mt-6 border-t border-border pt-6">
+                  <VendorProductManager
+                    vendorId={vendor.id}
+                    approved
+                    reviewOnly
+                  />
+                </div>
+              )}
             </article>
           ))}
           </div>
@@ -264,10 +370,8 @@ export default function VendorAdminPage() {
                 <Input
                   id="reviewer-search"
                   value={reviewerSearch}
-                  onChange={(event) => {
-                    setReviewerSearch(event.target.value);
-                    setReviewerPage(1);
-                  }}
+                  onChange={(event) => updateReviewerSearch(event.target.value)}
+                  maxLength={reviewerSearchMaxLength}
                   placeholder="Search by name, email, or user ID"
                   className="pl-9"
                 />
@@ -403,9 +507,7 @@ export default function VendorAdminPage() {
                     disabled={
                       reviewerPage <= 1 || reviewersQuery.isFetching
                     }
-                    onClick={() =>
-                      setReviewerPage((page) => Math.max(1, page - 1))
-                    }
+                    onClick={() => updateReviewerPage(reviewerPage - 1)}
                   >
                     <ChevronLeft className="h-4 w-4" />
                     Previous
@@ -418,7 +520,7 @@ export default function VendorAdminPage() {
                       !reviewerPageData.hasNextPage ||
                       reviewersQuery.isFetching
                     }
-                    onClick={() => setReviewerPage((page) => page + 1)}
+                    onClick={() => updateReviewerPage(reviewerPage + 1)}
                   >
                     Next
                     <ChevronRight className="h-4 w-4" />

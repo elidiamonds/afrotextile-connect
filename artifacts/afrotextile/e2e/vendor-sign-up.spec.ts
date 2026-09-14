@@ -1,5 +1,11 @@
 import { clerk } from "@clerk/testing/playwright";
-import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type BrowserContext,
+  type Page,
+  type Route,
+} from "@playwright/test";
 import { eq } from "drizzle-orm";
 import { db, pool, vendorsTable } from "@workspace/db";
 import { dirname, join } from "node:path";
@@ -126,6 +132,7 @@ async function requestProductImageUpload(page: Page, vendorId: string) {
 async function expectLoadedImage(page: Page, imageSelector: string) {
   const image = page.locator(imageSelector);
   await expect(image).toBeVisible();
+  await image.scrollIntoViewIfNeeded();
   await expect
     .poll(() =>
       image.evaluate(
@@ -137,6 +144,38 @@ async function expectLoadedImage(page: Page, imageSelector: string) {
     )
     .toBe(true);
   return image;
+}
+
+async function expectObjectStatus(
+  page: Page,
+  imageSrc: string,
+  expectedStatus: number,
+) {
+  const imageURL = new URL(imageSrc, page.url()).toString();
+  await expect
+    .poll(async () => (await page.request.get(imageURL)).status(), {
+      timeout: 15_000,
+    })
+    .toBe(expectedStatus);
+}
+
+async function clearProductImage(page: Page, productId: string) {
+  const token = await sessionToken(page);
+  const response = await page.evaluate(
+    async ({ id, sessionToken }) => {
+      const result = await fetch(`/api/products/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ imageUrl: "" }),
+      });
+      return { status: result.status, body: await result.text() };
+    },
+    { id: productId, sessionToken: token },
+  );
+  expect(response.status, response.body).toBe(200);
 }
 
 test.describe("vendor sign-up and return visits", () => {
@@ -162,6 +201,8 @@ test.describe("vendor sign-up and return visits", () => {
     page,
     browser,
   }) => {
+    test.setTimeout(90_000);
+
     await test.step("sign in with a disposable Clerk browser fixture", async () => {
       await signInFixture(page, vendorEmail);
     });
@@ -281,6 +322,10 @@ test.describe("vendor sign-up and return visits", () => {
       const shopperPage = await shopperContext.newPage();
       try {
         await shopperPage.goto(`/store/${vendorId}`);
+        const storefrontResponse = await shopperPage.request.get(
+          `/api/storefronts/${vendorId}`,
+        );
+        expect(storefrontResponse.status()).toBe(200);
         await expect(
           shopperPage.getByRole("heading", { name: "Kente House Returned" }),
         ).toBeVisible();
@@ -315,9 +360,25 @@ test.describe("vendor sign-up and return visits", () => {
         .fill("A hand-dyed cotton wrap made by independent makers.");
       await productManager.getByLabel("Visibility").selectOption("published");
 
+      const delayedUpload = async (route: Route) => {
+        if (route.request().method() === "PUT") {
+          await new Promise((resolve) => setTimeout(resolve, 750));
+        }
+        await route.continue();
+      };
+      await page.route("**/*", delayedUpload);
       await productManager
         .locator('input[type="file"]')
         .setInputFiles(firstProductPhoto);
+      await expect(
+        productManager.getByRole("progressbar", {
+          name: "Photo upload progress",
+        }),
+      ).toBeVisible();
+      await expect(
+        productManager.locator('button[type="submit"]'),
+      ).toBeDisabled();
+      await page.unroute("**/*", delayedUpload);
       await expect(
         page.getByText("Photo uploaded", { exact: true }),
       ).toBeVisible();
@@ -376,12 +437,51 @@ test.describe("vendor sign-up and return visits", () => {
         originalImageSrc,
       );
 
-      await page.goto("/shop");
-      await expectLoadedImage(page, `img[alt="${productName}"]`);
-      await expect(page.locator(`img[alt="${productName}"]`)).toHaveAttribute(
-        "src",
-        originalImageSrc,
-      );
+      const shopperContext = await browser.newContext();
+      const shopperPage = await shopperContext.newPage();
+      try {
+        await shopperPage.goto("/shop");
+        await expectLoadedImage(shopperPage, `img[alt="${productName}"]`);
+        await expect(
+          shopperPage.locator(`img[alt="${productName}"]`),
+        ).toHaveAttribute("src", originalImageSrc);
+        await expect(
+          shopperPage.getByRole("link", {
+            name: "Kente House Returned",
+            exact: true,
+          }),
+        ).toBeVisible();
+        await expect(
+          shopperPage.getByRole("link", {
+            name: "Kente House Browser Fixture",
+            exact: true,
+          }),
+        ).toHaveCount(0);
+      } finally {
+        await shopperContext.close();
+      }
+    });
+
+    await test.step("remove an abandoned photo from a canceled editor", async () => {
+      await page.goto(`/vendor/dashboard/${vendorId}`);
+      const productManager = page
+        .locator("section")
+        .filter({ hasText: "Products and inventory" });
+
+      await productManager
+        .locator('input[type="file"]')
+        .setInputFiles(replacementProductPhoto);
+      await expect(
+        page.getByText("Photo uploaded", { exact: true }),
+      ).toBeVisible();
+      const canceledImageSrc = await productManager
+        .getByAltText("Product preview")
+        .getAttribute("src");
+      expect(canceledImageSrc).toMatch(/\/api\/storage\/objects\//);
+      await expectObjectStatus(page, canceledImageSrc!, 200);
+
+      await productManager.getByRole("button", { name: "Cancel" }).click();
+      await expectObjectStatus(page, canceledImageSrc!, 404);
     });
 
     await test.step("replace the photo and persist the new image everywhere", async () => {
@@ -394,6 +494,18 @@ test.describe("vendor sign-up and return visits", () => {
         .filter({ hasText: productName });
 
       await productCard.getByRole("button", { name: "Edit" }).click();
+      await expect(
+        productManager.getByRole("button", { name: "Replace photo" }),
+      ).toBeVisible();
+      await productManager.getByRole("button", { name: "Cancel" }).click();
+      await expectObjectStatus(page, originalImageSrc, 200);
+
+      const productCardAfterCancel = productManager
+        .locator("article")
+        .filter({ hasText: productName });
+      await productCardAfterCancel
+        .getByRole("button", { name: "Edit" })
+        .click();
       await expect(
         productManager.getByRole("button", { name: "Replace photo" }),
       ).toBeVisible();
@@ -443,6 +555,8 @@ test.describe("vendor sign-up and return visits", () => {
       const replacementImageSrc = await replacementImage.getAttribute("src");
       expect(replacementImageSrc).toMatch(/\/api\/storage\/objects\//);
       expect(replacementImageSrc).not.toBe(originalImageSrc);
+      await expectObjectStatus(page, originalImageSrc, 404);
+      await expectObjectStatus(page, replacementImageSrc!, 200);
 
       await page.goto(`/store/${vendorId}`);
       await expectLoadedImage(page, `img[alt="${productName}"]`);
@@ -456,6 +570,46 @@ test.describe("vendor sign-up and return visits", () => {
         "src",
         replacementImageSrc!,
       );
+
+      await clearProductImage(page, productId);
+      await expectObjectStatus(page, replacementImageSrc!, 404);
+    });
+
+    await test.step("hide the storefront from shoppers after admin rejection", async () => {
+      const adminContext = await browser.newContext();
+      const adminPage = await adminContext.newPage();
+      try {
+        await signInFixture(adminPage, adminEmail);
+        await adminPage.goto("/admin/vendors");
+        const application = adminPage.locator("article").filter({
+          hasText: "Kente House Returned",
+        });
+        await expect(application).toBeVisible();
+        await application.getByRole("button", { name: "Reject" }).click();
+        await expect(
+          application.getByText("rejected", { exact: true }),
+        ).toBeVisible();
+      } finally {
+        await adminContext.close();
+      }
+
+      const shopperContext = await browser.newContext();
+      const shopperPage = await shopperContext.newPage();
+      try {
+        const storefrontResponse = await shopperPage.request.get(
+          `/api/storefronts/${vendorId}`,
+        );
+        expect(storefrontResponse.status()).toBe(404);
+        await shopperPage.goto(`/store/${vendorId}`);
+        await expect(
+          shopperPage.getByText("Vendor not found.", { exact: true }),
+        ).toBeVisible();
+        await expect(
+          shopperPage.getByRole("heading", { name: "Kente House Returned" }),
+        ).toHaveCount(0);
+      } finally {
+        await shopperContext.close();
+      }
     });
 
     await sessionToken(page);

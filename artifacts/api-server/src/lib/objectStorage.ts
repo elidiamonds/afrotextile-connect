@@ -144,6 +144,8 @@ export class ObjectStorageService {
   }
 }
 
+export const objectStorageService = new ObjectStorageService();
+
 function parseObjectPath(path: string): {
   bucketName: string;
   objectName: string;

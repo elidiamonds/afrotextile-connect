@@ -10,13 +10,25 @@ import {
 import { Button } from "@/components/ui/button";
 import { vendors, products } from "@/data/mock";
 import ProductCard from "@/components/ProductCard";
-import { useGetStorefront } from "@workspace/api-client-react";
+import {
+  getGetStorefrontQueryKey,
+  useGetStorefront,
+} from "@workspace/api-client-react";
 import { mapApiProduct } from "@/lib/product-mapper";
 
 const VendorPage = () => {
   const { id } = useParams<{ id: string }>();
   const legacyVendor = vendors.find((v) => v.id === id);
-  const { data: storedVendor, isLoading, isError } = useGetStorefront(id ?? "");
+  const {
+    data: storedVendor,
+    isLoading,
+    isError,
+  } = useGetStorefront(id ?? "", {
+    query: {
+      queryKey: getGetStorefrontQueryKey(id ?? ""),
+      retry: false,
+    },
+  });
   const vendor = storedVendor
     ? {
         id: storedVendor.id,

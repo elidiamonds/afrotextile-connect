@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { execFile } from "node:child_process";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
@@ -116,7 +116,9 @@ const testSchemaPattern = "^vendor_permission_[0-9]{10}_[0-9a-f]{32}$";
 let app: typeof import("../app").default;
 let db: typeof import("@workspace/db").db;
 let pool: typeof import("@workspace/db").pool;
+let assertDatabaseSchema: typeof import("@workspace/db").assertDatabaseSchema;
 let productsTable: typeof import("@workspace/db").productsTable;
+let productImageCleanupTable: typeof import("@workspace/db").productImageCleanupTable;
 let baseUrl = "";
 let server: ReturnType<typeof import("../app").default.listen> | undefined;
 
@@ -230,6 +232,16 @@ async function cleanupStaleTestSchemas() {
   }
 }
 
+async function createSchema(schemaName: string) {
+  await db.execute(sql`CREATE SCHEMA ${sql.identifier(schemaName)}`);
+}
+
+async function dropSchema(schemaName: string) {
+  await db.execute(
+    sql`DROP SCHEMA IF EXISTS ${sql.identifier(schemaName)} CASCADE`,
+  );
+}
+
 async function pushCanonicalSchema() {
   try {
     await execFileAsync(
@@ -270,9 +282,16 @@ describe("vendor authorization", () => {
     // Set DB_SCHEMA before loading the app or database package. The DB package
     // applies it to every pooled connection, keeping all test queries inside
     // this run-scoped schema instead of the shared development schema.
-    ({ db, pool, productsTable } = await import("@workspace/db"));
+    ({
+      assertDatabaseSchema,
+      db,
+      pool,
+      productsTable,
+      productImageCleanupTable,
+    } = await import("@workspace/db"));
     await cleanupStaleTestSchemas();
     await db.execute(sql.raw(`CREATE SCHEMA ${quotedTestSchema}`));
+    await assertDatabaseSchema(testSchema);
     await pushCanonicalSchema();
 
     ({ default: app } = await import("../app"));
@@ -311,6 +330,14 @@ describe("vendor authorization", () => {
     }
   });
 
+  it("fails fast when the connection is pointed at the wrong schema", async () => {
+    await expect(assertDatabaseSchema("public")).rejects.toThrow(
+      new RegExp(
+        `Database schema mismatch: expected current_schema\\(\\) to be "public" but got "${testSchema}"`,
+      ),
+    );
+  });
+
   it("rejects anonymous application submission and review attempts", async () => {
     const application = await submitApplication("task-13-anon-target", "anon");
 
@@ -334,6 +361,82 @@ describe("vendor authorization", () => {
       }),
     ).resolves.toMatchObject({ status: 401 });
   });
+
+  it.skipIf(!staleSchemaCleanupEnabled)(
+    "cleans only stale vendor-permission schemas within the configured limit",
+    async () => {
+      const fixtureRunId = crypto.randomUUID().replaceAll("-", "");
+      // Use an old, valid timestamp so these fixtures sort before unrelated
+      // stale schemas and deterministically exercise the cleanup limit.
+      const staleTimestamp = 1_000_000_000;
+      const staleSchemaNames = Array.from(
+        { length: staleSchemaCleanupLimit + 2 },
+        (_, index) =>
+          `${testSchemaPrefix}${staleTimestamp}_${fixtureRunId.slice(0, 30)}${(
+            index + 1
+          )
+            .toString(16)
+            .padStart(2, "0")}`,
+      );
+      const freshSchemaName = `${testSchemaPrefix}${Math.floor(
+        Date.now() / 1000,
+      )}_${fixtureRunId}`;
+      const legacySchemaName = `${testSchemaPrefix}${crypto
+        .randomUUID()
+        .replaceAll("-", "")}`;
+      const activeShapedSchemaName = `${testSchemaPrefix}active_${fixtureRunId}`;
+      const applicationShapedSchemaName = `afrotextile_application_${fixtureRunId}`;
+      const fixtureSchemaNames = [
+        ...staleSchemaNames,
+        freshSchemaName,
+        legacySchemaName,
+        activeShapedSchemaName,
+        applicationShapedSchemaName,
+      ];
+
+      try {
+        for (const schemaName of fixtureSchemaNames) {
+          await createSchema(schemaName);
+        }
+
+        await cleanupStaleTestSchemas();
+
+        const remainingSchemas = await db.execute<{ schemaName: string }>(sql`
+          SELECT nspname AS "schemaName"
+          FROM pg_catalog.pg_namespace
+          WHERE nspname IN (
+            ${sql.join(
+              fixtureSchemaNames.map((schemaName) => sql`${schemaName}`),
+              sql`, `,
+            )}
+          )
+          ORDER BY nspname
+        `);
+        const remainingSchemaNames = remainingSchemas.rows.map(
+          ({ schemaName }) => schemaName,
+        );
+        const expectedRemainingSchemaNames = [
+          ...staleSchemaNames.slice(staleSchemaCleanupLimit),
+          freshSchemaName,
+          legacySchemaName,
+          activeShapedSchemaName,
+          applicationShapedSchemaName,
+        ].sort();
+
+        expect(remainingSchemaNames).toEqual(expectedRemainingSchemaNames);
+        expect(remainingSchemaNames).not.toContain(
+          staleSchemaNames[staleSchemaCleanupLimit - 1],
+        );
+        expect(remainingSchemaNames).toContain(
+          staleSchemaNames[staleSchemaCleanupLimit],
+        );
+      } finally {
+        for (const schemaName of fixtureSchemaNames) {
+          await dropSchema(schemaName);
+        }
+      }
+    },
+  );
 
   it("records every reviewer grant and revoke and limits history to admins", async () => {
     const targetUserId = `task-21-target-${runId}`;
@@ -697,6 +800,25 @@ describe("vendor authorization", () => {
     expect(created.status).toBe(201);
     const productId = (created.body as { id: string }).id;
 
+    const reviewerCatalog = await request(
+      `/vendors/${owner.id}/products/review`,
+      { userId: reviewerId },
+    );
+    expect(reviewerCatalog.status).toBe(200);
+    expect(reviewerCatalog.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: productId, status: "draft" }),
+      ]),
+    );
+    await expect(
+      request(`/vendors/${owner.id}/products/review`, {
+        userId: otherUserId,
+      }),
+    ).resolves.toMatchObject({ status: 403 });
+    await expect(
+      request(`/vendors/${owner.id}/products/review`),
+    ).resolves.toMatchObject({ status: 401 });
+
     await expect(
       request(`/products/${productId}/history`, { userId: ownerId }),
     ).resolves.toMatchObject({ status: 200 });
@@ -727,6 +849,16 @@ describe("vendor authorization", () => {
       userId: reviewerId,
     });
     expect(history.status).toBe(200);
+    const archivedCatalog = await request(
+      `/vendors/${owner.id}/products/review`,
+      { userId: reviewerId },
+    );
+    expect(archivedCatalog.status).toBe(200);
+    expect(archivedCatalog.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: productId, status: "archived" }),
+      ]),
+    );
     expect(history.body).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -828,5 +960,57 @@ describe("vendor authorization", () => {
     expect((returnVisit.body as { businessName: string }).businessName).toBe(
       "Kente House Returned",
     );
+  });
+
+  it("records and retries a temporary product-image cleanup failure", async () => {
+    const { objectStorageService } = await import("../lib/objectStorage");
+    const { cleanupUnreferencedProductImage, processPendingProductImageCleanups } =
+      await import("../lib/productImageCleanup");
+    const imagePath = `/objects/uploads/retry-${runId}`;
+    const deleteObject = vi
+      .spyOn(objectStorageService, "deleteObjectEntity")
+      .mockRejectedValueOnce(new Error("temporary storage outage"))
+      .mockResolvedValue(undefined);
+    const cleanupLogger = {
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+
+    try {
+      await cleanupUnreferencedProductImage(
+        imagePath,
+        cleanupLogger,
+        "integration test",
+      );
+
+      const [pending] = await db
+        .select()
+        .from(productImageCleanupTable)
+        .where(eq(productImageCleanupTable.imagePath, imagePath));
+      expect(pending).toMatchObject({
+        imagePath,
+        attempts: 1,
+        lastError: "temporary storage outage",
+      });
+
+      await db
+        .update(productImageCleanupTable)
+        .set({ nextAttemptAt: new Date(0) })
+        .where(eq(productImageCleanupTable.imagePath, imagePath));
+      await processPendingProductImageCleanups();
+
+      expect(deleteObject).toHaveBeenCalledTimes(2);
+      await expect(
+        db
+          .select()
+          .from(productImageCleanupTable)
+          .where(eq(productImageCleanupTable.imagePath, imagePath)),
+      ).resolves.toEqual([]);
+    } finally {
+      deleteObject.mockRestore();
+      await db
+        .delete(productImageCleanupTable)
+        .where(eq(productImageCleanupTable.imagePath, imagePath));
+    }
   });
 });

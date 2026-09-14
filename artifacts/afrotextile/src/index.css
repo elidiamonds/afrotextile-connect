@@ -75,12 +75,16 @@
     align-items: center;
     gap: 0.55rem;
     min-height: 2rem;
+    padding: 0.2rem 0.4rem;
+    background: #fff;
+    border-radius: 0.25rem;
+    box-shadow: 0 0.15rem 0.8rem hsl(27 19% 8% / 0.16);
   }
 
-  .brand-lockup-mark {
+  .brand-lockup-official {
     display: block;
-    width: 2rem;
-    height: 2rem;
+    width: 11rem;
+    height: 8.25rem;
     object-fit: contain;
     flex: 0 0 auto;
   }
@@ -92,14 +96,16 @@
     letter-spacing: 0.16em;
     line-height: 1;
     white-space: nowrap;
+    color: hsl(27 19% 8%);
   }
 
-  .brand-lockup-dark .brand-lockup-wordmark {
-    color: hsl(var(--ivory));
+  .brand-lockup-compact {
+    padding: 0.2rem 0.45rem 0.2rem 0.2rem;
   }
 
-  .brand-lockup-light .brand-lockup-wordmark {
-    color: hsl(var(--foreground));
+  .brand-lockup-compact .brand-lockup-official {
+    width: 2.35rem;
+    height: 2.35rem;
   }
 
   .brand-lockup-compact .brand-lockup-wordmark {

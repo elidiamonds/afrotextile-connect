@@ -62,12 +62,20 @@ export default function Competitive() {
             className="flex-1 flex flex-col overflow-hidden"
             style={{ background: "#1A1510", borderTop: "0.3vh solid #C9A84C", padding: "2vh 3vw" }}
           >
-            <p
-              className="font-body font-bold text-primary tracking-widest uppercase"
-              style={{ fontSize: "2.2vw", flexShrink: 0, marginBottom: "1.5vh" }}
-            >
-              Afrotextile
-            </p>
+            <div className="flex items-center gap-[1.2vw]" style={{ flexShrink: 0, marginBottom: "1.5vh" }}>
+              <img
+                src={`${import.meta.env.BASE_URL}brand/threaded-a-dark.svg`}
+                crossOrigin="anonymous"
+                alt="Afrotextile Threaded A mark"
+                className="w-[3.2vw] h-[3.2vw] object-contain shrink-0"
+              />
+              <p
+                className="font-body font-bold text-primary tracking-[0.16em] uppercase"
+                style={{ fontSize: "2.2vw" }}
+              >
+                AFROTEXTILE
+              </p>
+            </div>
             <div className="flex flex-col" style={{ gap: "1.2vh" }}>
               <div className="flex items-start" style={{ gap: "1.5vw" }}>
                 <span className="font-display font-black text-primary shrink-0" style={{ fontSize: "2.2vw" }}>+</span>

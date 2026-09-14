@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { sceneTransitions } from '@/lib/video/animations';
+import { BrandLockup } from '../BrandLockup';
 
 export function Scene1() {
   const [phase, setPhase] = useState(0);
@@ -27,19 +28,13 @@ export function Scene1() {
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         />
         
-        <h1 className="text-[10vw] leading-none font-bold text-[var(--color-text-primary)]" style={{ fontFamily: 'var(--font-display)' }}>
-          {'AFROTEXTILE'.split('').map((char, i) => (
-            <motion.span 
-              key={i} 
-              style={{ display: 'inline-block' }}
-              initial={{ opacity: 0, y: 100, rotateX: -60, filter: 'blur(10px)' }}
-              animate={phase >= 2 ? { opacity: 1, y: 0, rotateX: 0, filter: 'blur(0px)' } : { opacity: 0, y: 100, rotateX: -60, filter: 'blur(10px)' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 20, delay: phase >= 2 ? i * 0.05 : 0 }}
-            >
-              {char}
-            </motion.span>
-          ))}
-        </h1>
+        <motion.div
+          initial={{ opacity: 0, y: 100, rotateX: -60, filter: 'blur(10px)' }}
+          animate={phase >= 2 ? { opacity: 1, y: 0, rotateX: 0, filter: 'blur(0px)' } : { opacity: 0, y: 100, rotateX: -60, filter: 'blur(10px)' }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+        >
+          <BrandLockup variant="dark" size="hero" />
+        </motion.div>
 
         <motion.p 
           className="text-[2vw] text-[var(--color-primary)] mt-6 tracking-[0.2em] uppercase"

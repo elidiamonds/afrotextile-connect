@@ -26,12 +26,20 @@ export default function Cover() {
         >
           Investor Presentation
         </p>
-        <h1
-          className="font-display font-black text-text tracking-tight leading-none mb-[3vh]"
-          style={{ fontSize: "9vw", textWrap: "balance" }}
-        >
-          Afrotextile
-        </h1>
+        <div className="flex items-center gap-[2.2vw] mb-[3vh]">
+          <img
+            src={`${base}brand/threaded-a-compact.svg`}
+            crossOrigin="anonymous"
+            alt="Afrotextile Threaded A mark"
+            className="w-[9vw] h-[9vw] object-contain shrink-0"
+          />
+          <h1
+            className="font-body font-bold text-text tracking-[0.16em] leading-none"
+            style={{ fontSize: "8.2vw", textWrap: "balance" }}
+          >
+            AFROTEXTILE
+          </h1>
+        </div>
         <div className="w-[8vw] h-[0.3vh] bg-primary mb-[3.5vh]" />
         <p
           className="font-display font-bold text-text leading-snug mb-[5vh]"
