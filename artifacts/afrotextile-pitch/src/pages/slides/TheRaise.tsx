@@ -43,9 +43,9 @@ export default function TheRaise() {
           </div>
           <div className="flex items-center gap-[1vw]">
             <img
-              src={`${base}brand/threaded-a-dark.svg`}
+              src={`${base}brand/official-icon.png`}
               crossOrigin="anonymous"
-              alt="Afrotextile Threaded A mark"
+              alt="Afrotextile official icon"
               className="w-[3.2vw] h-[3.2vw] object-contain shrink-0"
             />
             <div>

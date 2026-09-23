@@ -9,6 +9,7 @@ type ReviewerFixture = ClerkUser & {
 };
 
 const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const reviewerSearchToken = `SearchReviewer${runId.replaceAll("-", "")}`;
 const adminEmail = `afrotextile-reviewer-search-admin-${runId}@example.com`;
 const fixturePassword = `Afrotextile-${runId}-fixture!`;
 const clerkApiUrl = process.env.CLERK_API_URL ?? "https://api.clerk.com/v1";
@@ -72,9 +73,19 @@ async function deleteClerkFixture(userId: string | undefined) {
   }
 }
 
-async function signInFixture(page: Page, emailAddress: string) {
+async function signInFixture(
+  page: Page,
+  emailAddress: string,
+  expectedUserId: string,
+) {
   await page.goto("/");
+  await clerk.signOut({ page });
   await clerk.signIn({ page, emailAddress });
+  await page.waitForFunction(
+    (userId) => window.Clerk?.user?.id === userId,
+    expectedUserId,
+    { timeout: 15_000 },
+  );
   await expect(page.locator("body")).toContainText("Afrotextile");
 }
 
@@ -99,7 +110,7 @@ test.describe("vendor reviewer search and pagination", () => {
       Array.from({ length: reviewerCount }, async (_, index) => {
         const sequence = String(index + 1).padStart(2, "0");
         const email = `afrotextile-search-reviewer-${sequence}-${runId}@example.com`;
-        const firstName = `Reviewer${sequence}`;
+        const firstName = `${reviewerSearchToken}${sequence}`;
         const lastName = "Pagination Fixture";
         const user = await createClerkFixture(
           email,
@@ -129,12 +140,16 @@ test.describe("vendor reviewer search and pagination", () => {
       throw new Error("The reviewer browser fixture was not created.");
     }
 
-    await signInFixture(page, adminEmail);
+    await signInFixture(page, adminEmail, adminUser.id);
 
     let delayedInitialRequest = false;
+    let delayedRefreshRequest = false;
     await page.route("**/api/vendor-reviewers*", async (route) => {
       if (!delayedInitialRequest) {
         delayedInitialRequest = true;
+        await new Promise((resolve) => setTimeout(resolve, 750));
+      } else if (!delayedRefreshRequest) {
+        delayedRefreshRequest = true;
         await new Promise((resolve) => setTimeout(resolve, 750));
       }
       await route.continue();
@@ -153,6 +168,32 @@ test.describe("vendor reviewer search and pagination", () => {
     const reviewerSection = page
       .locator("section")
       .filter({ has: page.getByRole("heading", { name: "Reviewer access" }) });
+
+    await test.step("show background refresh without hiding reviewer actions", async () => {
+      const refreshRequest = page.waitForRequest(
+        (request) =>
+          request.method() === "GET" &&
+          request.url().includes("/api/vendor-reviewers"),
+      );
+      const refreshResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === "GET" &&
+          response.url().includes("/api/vendor-reviewers"),
+      );
+      await refreshRequest;
+      await expect(
+        reviewerSection.getByText("Checking for changes…", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        reviewerSection.getByText("Loading users…", { exact: true }),
+      ).toBeHidden();
+      await expect(
+        reviewerSection
+          .getByRole("button", { name: /^(Grant|Revoke)$/ })
+          .first(),
+      ).toBeVisible();
+      expect((await refreshResponse).status()).toBe(200);
+    });
 
     await test.step("search by name, email, and user ID", async () => {
       const nameResponse = page.waitForResponse(
@@ -227,16 +268,64 @@ test.describe("vendor reviewer search and pagination", () => {
       ).toBeVisible();
     });
 
-    await test.step("request the next page and preserve reviewer actions", async () => {
-      const clearSearchResponse = page.waitForResponse(
+    await test.step("clear a saved search from the second page", async () => {
+      const savedSearch = runId;
+      const savedSearchResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === "GET" &&
+          response.url().includes("/api/vendor-reviewers") &&
+          new URL(response.url()).searchParams.get("search") === savedSearch &&
+          reviewerRequestPage(response.url()) === "1",
+      );
+      await search.fill(savedSearch);
+      expect((await savedSearchResponse).status()).toBe(200);
+      await expect(
+        reviewerSection.getByText("Page 1 of 2", { exact: true }),
+      ).toBeVisible();
+
+      const savedSearchNextResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === "GET" &&
+          response.url().includes("/api/vendor-reviewers") &&
+          new URL(response.url()).searchParams.get("search") === savedSearch &&
+          reviewerRequestPage(response.url()) === "2",
+      );
+      await reviewerSection.getByRole("button", { name: "Next" }).click();
+      expect((await savedSearchNextResponse).status()).toBe(200);
+      await expect(
+        reviewerSection.getByText("Page 2 of 2", { exact: true }),
+      ).toBeVisible();
+      expect(new URL(page.url()).searchParams.get("search")).toBe(savedSearch);
+      expect(new URL(page.url()).searchParams.get("page")).toBe("2");
+
+      const clearButton = reviewerSection.getByRole("button", {
+        name: "Clear reviewer search",
+      });
+      await expect(clearButton).toBeVisible();
+      const clearSavedSearchResponse = page.waitForResponse(
         (response) =>
           response.request().method() === "GET" &&
           response.url().includes("/api/vendor-reviewers") &&
           !new URL(response.url()).searchParams.has("search") &&
           reviewerRequestPage(response.url()) === "1",
       );
-      await search.fill("");
-      expect((await clearSearchResponse).status()).toBe(200);
+      await clearButton.click();
+      expect((await clearSavedSearchResponse).status()).toBe(200);
+      await expect(search).toHaveValue("");
+      await expect(
+        reviewerSection.getByText("Page 1 of", { exact: false }),
+      ).toBeVisible();
+      expect(new URL(page.url()).searchParams.get("search")).toBeNull();
+      expect(new URL(page.url()).searchParams.get("page")).toBeNull();
+      await expect(
+        reviewerSection
+          .getByRole("button", { name: /^(Grant|Revoke)$/ })
+          .first(),
+      ).toBeVisible();
+      await expect(clearButton).toBeHidden();
+    });
+
+    await test.step("request the next page and preserve reviewer actions", async () => {
       await expect(page.getByText("Page 1 of", { exact: false })).toBeVisible();
 
       const nextResponse = page.waitForResponse(
@@ -344,5 +433,400 @@ test.describe("vendor reviewer search and pagination", () => {
       await expect(page.getByText("Page 1 of", { exact: false })).toBeVisible();
       expect(new URL(page.url()).searchParams.get("page")).toBe("1");
     });
+  });
+
+  test("keeps reviewer controls usable on a narrow viewport", async ({
+    page,
+  }) => {
+    const viewport = { width: 360, height: 800 };
+    await page.setViewportSize(viewport);
+    await signInFixture(page, adminEmail, adminUser.id);
+
+    const savedSearch = reviewerSearchToken;
+    const reviewerSection = page
+      .locator("section")
+      .filter({ has: page.getByRole("heading", { name: "Reviewer access" }) });
+    const savedSearchResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "GET" &&
+        response.url().includes("/api/vendor-reviewers") &&
+        new URL(response.url()).searchParams.get("search") === savedSearch &&
+        reviewerRequestPage(response.url()) === "2",
+    );
+    await page.goto(
+      `/admin/vendors?search=${encodeURIComponent(savedSearch)}&page=2`,
+    );
+    expect((await savedSearchResponse).status()).toBe(200);
+    await expect(
+      reviewerSection.getByText("Page 2 of 2", { exact: true }),
+    ).toBeVisible();
+
+    const search = page.getByLabel("Search users");
+    const clearButton = reviewerSection.getByRole("button", {
+      name: "Clear reviewer search",
+    });
+    await expect(search).toHaveValue(savedSearch);
+    await expect(clearButton).toBeVisible();
+
+    const searchBox = await search.boundingBox();
+    const clearButtonBox = await clearButton.boundingBox();
+    expect(searchBox).not.toBeNull();
+    expect(clearButtonBox).not.toBeNull();
+    if (!searchBox || !clearButtonBox) {
+      throw new Error("Reviewer search controls are not measurable.");
+    }
+    expect(searchBox.x + searchBox.width).toBeLessThanOrEqual(viewport.width);
+    expect(clearButtonBox.x + clearButtonBox.width).toBeLessThanOrEqual(
+      viewport.width,
+    );
+    expect(clearButtonBox.x).toBeGreaterThan(searchBox.x);
+    expect(clearButtonBox.y).toBeGreaterThanOrEqual(searchBox.y);
+    expect(clearButtonBox.y + clearButtonBox.height).toBeLessThanOrEqual(
+      searchBox.y + searchBox.height,
+    );
+
+    for (const name of ["Previous", "Next"]) {
+      const button = reviewerSection.getByRole("button", { name });
+      await expect(button).toBeVisible();
+      const buttonBox = await button.boundingBox();
+      expect(buttonBox).not.toBeNull();
+      if (!buttonBox) {
+        throw new Error(`${name} reviewer pagination control is not measurable.`);
+      }
+      expect(buttonBox.x + buttonBox.width).toBeLessThanOrEqual(
+        viewport.width,
+      );
+    }
+    expect(
+      await reviewerSection.evaluate(
+        (section) => section.scrollWidth <= section.clientWidth,
+      ),
+    ).toBe(true);
+
+    const clearSearchResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "GET" &&
+        response.url().includes("/api/vendor-reviewers") &&
+        !new URL(response.url()).searchParams.has("search") &&
+        reviewerRequestPage(response.url()) === "1",
+    );
+    await clearButton.click();
+    expect((await clearSearchResponse).status()).toBe(200);
+    await expect(search).toHaveValue("");
+    await expect(
+      reviewerSection.getByText("Page 1 of", { exact: false }),
+    ).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("search")).toBeNull();
+    expect(new URL(page.url()).searchParams.get("page")).toBeNull();
+    await expect(clearButton).toBeHidden();
+  });
+
+  test("preserves a saved reviewer link in another admin session", async ({
+    page,
+    browser,
+  }) => {
+    const savedSearch = reviewerSearchToken;
+
+    const otherAdminContext = await browser.newContext();
+    const otherAdminPage = await otherAdminContext.newPage();
+
+    try {
+      await signInFixture(page, adminEmail, adminUser.id);
+
+      const reviewerSection = page
+        .locator("section")
+        .filter({ has: page.getByRole("heading", { name: "Reviewer access" }) });
+      const search = page.getByLabel("Search users");
+
+      await page.goto("/admin/vendors");
+      const savedSearchResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === "GET" &&
+          response.url().includes("/api/vendor-reviewers") &&
+          new URL(response.url()).searchParams.get("search") === savedSearch &&
+          reviewerRequestPage(response.url()) === "1",
+      );
+      await search.fill(savedSearch);
+      expect((await savedSearchResponse).status()).toBe(200);
+      await expect(
+        reviewerSection.getByText("Page 1 of 2", { exact: true }),
+      ).toBeVisible();
+
+      const nextPageResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === "GET" &&
+          response.url().includes("/api/vendor-reviewers") &&
+          new URL(response.url()).searchParams.get("search") === savedSearch &&
+          reviewerRequestPage(response.url()) === "2",
+      );
+      await reviewerSection.getByRole("button", { name: "Next" }).click();
+      expect((await nextPageResponse).status()).toBe(200);
+      await expect(
+        reviewerSection.getByText("Page 2 of 2", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        reviewerSection.getByText(
+          /afrotextile-search-reviewer-\d{2}-.*@example\.com/,
+        ).first(),
+      ).toBeVisible();
+
+      const savedReviewerUrl = new URL(page.url());
+      expect(savedReviewerUrl.searchParams.get("search")).toBe(savedSearch);
+      expect(savedReviewerUrl.searchParams.get("page")).toBe("2");
+
+      await signInFixture(otherAdminPage, adminEmail, adminUser.id);
+      const otherAdminResponse = otherAdminPage.waitForResponse(
+        (response) =>
+          response.request().method() === "GET" &&
+          response.url().includes("/api/vendor-reviewers") &&
+          new URL(response.url()).searchParams.get("search") === savedSearch &&
+          reviewerRequestPage(response.url()) === "2",
+      );
+      await otherAdminPage.goto(savedReviewerUrl.toString());
+      expect((await otherAdminResponse).status()).toBe(200);
+
+      await expect(otherAdminPage.getByLabel("Search users")).toHaveValue(
+        savedSearch,
+      );
+      await expect(
+        otherAdminPage.getByText("Page 2 of 2", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        otherAdminPage
+          .locator("section")
+          .filter({
+            has: otherAdminPage.getByRole("heading", {
+              name: "Reviewer access",
+            }),
+          })
+          .getByText(/afrotextile-search-reviewer-\d{2}-.*@example\.com/)
+          .first(),
+      ).toBeVisible();
+      expect(new URL(otherAdminPage.url()).searchParams.get("search")).toBe(
+        savedSearch,
+      );
+      expect(new URL(otherAdminPage.url()).searchParams.get("page")).toBe("2");
+    } finally {
+      await otherAdminContext.close();
+    }
+  });
+
+  test("refreshes a saved reviewer search when a new match appears", async ({
+    page,
+  }) => {
+    const savedSearch = `${reviewerSearchToken}Refresh`;
+    const savedReviewerUrl = `/admin/vendors?search=${encodeURIComponent(
+      savedSearch,
+    )}&page=1`;
+    const newReviewerEmail = `afrotextile-search-refresh-${runId}@example.com`;
+    const newReviewerFirstName = savedSearch;
+    const newReviewerLastName = "Refresh Fixture";
+
+    await signInFixture(page, adminEmail, adminUser.id);
+
+    const initialResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "GET" &&
+        response.url().includes("/api/vendor-reviewers") &&
+        new URL(response.url()).searchParams.get("search") === savedSearch &&
+        reviewerRequestPage(response.url()) === "1",
+    );
+    await page.goto(savedReviewerUrl);
+    const initial = await initialResponse;
+    expect(initial.status()).toBe(200);
+    expect((await initial.json()).totalCount).toBe(0);
+    await expect(
+      page.getByText(`No users match “${savedSearch}”.`, { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Search users")).toHaveValue(savedSearch);
+    expect(new URL(page.url()).searchParams.get("search")).toBe(savedSearch);
+    expect(new URL(page.url()).searchParams.get("page")).toBe("1");
+
+    const newReviewer = await createClerkFixture(
+      newReviewerEmail,
+      newReviewerFirstName,
+      newReviewerLastName,
+      {},
+    );
+    reviewerFixtures.push({
+      ...newReviewer,
+      email: newReviewerEmail,
+      firstName: newReviewerFirstName,
+      lastName: newReviewerLastName,
+    });
+
+    const refreshedResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "GET" &&
+        response.url().includes("/api/vendor-reviewers") &&
+        new URL(response.url()).searchParams.get("search") === savedSearch &&
+        reviewerRequestPage(response.url()) === "1",
+    );
+    await page.reload();
+    const refreshed = await refreshedResponse;
+    expect(refreshed.status()).toBe(200);
+    expect((await refreshed.json()).totalCount).toBe(1);
+    await expect(reviewerCard(page, newReviewerEmail)).toBeVisible();
+    await expect(page.getByLabel("Search users")).toHaveValue(savedSearch);
+    await expect(page.getByText("Page 1 of 1", { exact: true })).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("search")).toBe(savedSearch);
+    expect(new URL(page.url()).searchParams.get("page")).toBe("1");
+  });
+
+  test("retries a failed saved reviewer page without changing its URL state", async ({
+    page,
+  }) => {
+    const savedSearch = reviewerSearchToken;
+    const savedReviewerUrl = `/admin/vendors?search=${encodeURIComponent(
+      savedSearch,
+    )}&page=2`;
+    let failReviewerRequests = true;
+
+    await signInFixture(page, adminEmail, adminUser.id);
+    await page.route("**/api/vendor-reviewers*", async (route) => {
+      const requestUrl = new URL(route.request().url());
+      if (
+        requestUrl.searchParams.get("search") === savedSearch &&
+        reviewerRequestPage(route.request().url()) === "2" &&
+        failReviewerRequests
+      ) {
+        await route.abort("failed");
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.goto(savedReviewerUrl);
+    await expect(
+      page.getByText("Reviewer access could not be loaded", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByRole("button", { name: "Retry reviewer results" }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Search users")).toHaveValue(savedSearch);
+    expect(new URL(page.url()).searchParams.get("search")).toBe(savedSearch);
+    expect(new URL(page.url()).searchParams.get("page")).toBe("2");
+
+    failReviewerRequests = false;
+    const retryResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "GET" &&
+        response.url().includes("/api/vendor-reviewers") &&
+        new URL(response.url()).searchParams.get("search") === savedSearch &&
+        reviewerRequestPage(response.url()) === "2",
+    );
+    await page
+      .getByRole("button", { name: "Retry reviewer results" })
+      .click();
+    const retry = await retryResponse;
+    expect(retry.status()).toBe(200);
+    expect(new URL(retry.url()).searchParams.get("search")).toBe(savedSearch);
+    expect(reviewerRequestPage(retry.url())).toBe("2");
+    await expect(
+      page.getByText("Reviewer access could not be loaded", { exact: true }),
+    ).toBeHidden();
+    await expect(page.getByText("Page 2 of 2", { exact: true })).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("search")).toBe(savedSearch);
+    expect(new URL(page.url()).searchParams.get("page")).toBe("2");
+  });
+
+  test("recovers a saved reviewer page after some matching users are removed", async ({
+    page,
+    browser,
+  }) => {
+    const savedSearch = reviewerSearchToken;
+    const savedReviewerUrl = `/admin/vendors?search=${encodeURIComponent(
+      savedSearch,
+    )}&page=2`;
+    const usersToRemove = reviewerFixtures.slice(0, 2);
+    const remainingReviewerCount = reviewerCount - usersToRemove.length;
+    const otherAdminContext = await browser.newContext();
+    const otherAdminPage = await otherAdminContext.newPage();
+
+    try {
+      await signInFixture(page, adminEmail, adminUser.id);
+      await signInFixture(otherAdminPage, adminEmail, adminUser.id);
+
+      const initialResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === "GET" &&
+          response.url().includes("/api/vendor-reviewers") &&
+          new URL(response.url()).searchParams.get("search") === savedSearch &&
+          reviewerRequestPage(response.url()) === "2",
+      );
+      await page.goto(savedReviewerUrl);
+      const initial = await initialResponse;
+      expect(initial.status()).toBe(200);
+      expect((await initial.json()).totalCount).toBe(reviewerCount);
+      await expect(page.getByText("Page 2 of 2", { exact: true })).toBeVisible();
+      expect(new URL(page.url()).searchParams.get("search")).toBe(savedSearch);
+      expect(new URL(page.url()).searchParams.get("page")).toBe("2");
+
+      const otherAdminResponse = otherAdminPage.waitForResponse(
+        (response) =>
+          response.request().method() === "GET" &&
+          response.url().includes("/api/vendor-reviewers") &&
+          new URL(response.url()).searchParams.get("search") === savedSearch &&
+          reviewerRequestPage(response.url()) === "2",
+      );
+      await otherAdminPage.goto(savedReviewerUrl);
+      expect((await otherAdminResponse).status()).toBe(200);
+      await expect(
+        otherAdminPage.getByText("Page 2 of 2", { exact: true }),
+      ).toBeVisible();
+
+      const reducedCountResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === "GET" &&
+          response.url().includes("/api/vendor-reviewers") &&
+          new URL(response.url()).searchParams.get("search") === savedSearch &&
+          reviewerRequestPage(response.url()) === "2",
+      );
+      const normalizedPageResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === "GET" &&
+          response.url().includes("/api/vendor-reviewers") &&
+          new URL(response.url()).searchParams.get("search") === savedSearch &&
+          reviewerRequestPage(response.url()) === "1",
+      );
+      await Promise.all(
+        usersToRemove.map((reviewer) => deleteClerkFixture(reviewer.id)),
+      );
+      reviewerFixtures = reviewerFixtures.slice(usersToRemove.length);
+
+      const reducedCount = await reducedCountResponse;
+      expect(reducedCount.status()).toBe(200);
+      expect((await reducedCount.json()).totalCount).toBe(remainingReviewerCount);
+
+      const normalizedPage = await normalizedPageResponse;
+      expect(normalizedPage.status()).toBe(200);
+      expect((await normalizedPage.json()).totalCount).toBe(
+        remainingReviewerCount,
+      );
+
+      await expect(page.getByLabel("Search users")).toHaveValue(savedSearch);
+      const reviewerPagination = page
+        .getByText(
+          `Showing 1–${remainingReviewerCount} of ${remainingReviewerCount} users`,
+          { exact: true },
+        )
+        .locator("..");
+      await expect(
+        reviewerPagination.getByText(`Page 1 of 1`, { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: /^(Grant|Revoke)$/ }),
+      ).toHaveCount(remainingReviewerCount);
+      await expect(
+        reviewerPagination.getByRole("button", { name: "Previous" }),
+      ).toBeDisabled();
+      await expect(
+        reviewerPagination.getByRole("button", { name: "Next" }),
+      ).toBeDisabled();
+      expect(new URL(page.url()).searchParams.get("search")).toBe(savedSearch);
+      expect(new URL(page.url()).searchParams.get("page")).toBe("1");
+    } finally {
+      await otherAdminContext.close();
+    }
   });
 });

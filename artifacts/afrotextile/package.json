@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
-    "build": "pnpm run check:brand-assets && vite build --config vite.config.ts",
+    "build": "pnpm run check:brand-assets && vite build --config vite.config.ts && pnpm run check:brand-assets:built",
     "check:brand-assets": "node ../../scripts/check-afrotextile-brand-assets.mjs",
+    "check:brand-assets:built": "node ../../scripts/check-afrotextile-brand-assets.mjs --built",
+    "check:brand-assets:published": "node ../../scripts/check-afrotextile-brand-assets.mjs --published",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:e2e": "playwright test --config=playwright.config.ts"

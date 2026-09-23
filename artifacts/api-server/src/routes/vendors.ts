@@ -1,11 +1,13 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 import { clerkClient, getAuth } from "@clerk/express";
 import {
   db,
   productsTable,
   vendorReviewerAccessHistoryTable,
+  vendorStorefrontHistoryTable,
   vendorsTable,
+  type Vendor,
 } from "@workspace/db";
 import {
   CreateVendorBody,
@@ -27,9 +29,12 @@ import {
   UpdateVendorReviewerResponse,
   ListVendorReviewersQueryParams,
   ListVendorReviewersResponse,
+  ListVendorReviewerAccessHistoryQueryParams,
   ListVendorReviewerAccessHistoryResponse,
+  ListVendorStorefrontHistoryResponse,
 } from "@workspace/api-zod";
 import { toApiProduct } from "./products";
+import { hasAdministratorAccess } from "../lib/adminAccess";
 
 const router: IRouter = Router();
 
@@ -39,12 +44,15 @@ function authenticatedUserId(req: Request): string | null {
 
 async function isAdmin(userId: string): Promise<boolean> {
   const user = await clerkClient.users.getUser(userId);
-  return user.publicMetadata.role === "admin";
+  return hasAdministratorAccess(user);
 }
 
 async function isVendorReviewer(userId: string): Promise<boolean> {
   const user = await clerkClient.users.getUser(userId);
-  return isVendorReviewerMetadata(user.publicMetadata);
+  return (
+    hasAdministratorAccess(user) ||
+    isVendorReviewerMetadata(user.publicMetadata)
+  );
 }
 
 function isVendorReviewerMetadata(metadata: Record<string, unknown>): boolean {
@@ -54,6 +62,125 @@ function isVendorReviewerMetadata(metadata: Record<string, unknown>): boolean {
     metadata.role === "vendor-reviewer" ||
     metadata.vendorReviewer === true
   );
+}
+
+const vendorStorefrontHistoryFields = [
+  "businessName",
+  "contactName",
+  "phone",
+  "location",
+  "category",
+  "plan",
+  "description",
+  "logoUrl",
+] as const;
+
+const vendorStorefrontFieldLabels: Record<
+  (typeof vendorStorefrontHistoryFields)[number],
+  string
+> = {
+  businessName: "Business name",
+  contactName: "Contact name",
+  phone: "Phone",
+  location: "Location",
+  category: "Category",
+  plan: "Plan",
+  description: "Brand story",
+  logoUrl: "Logo image URL",
+};
+
+type VendorUpdateValidationIssue = {
+  code: string;
+  path: ReadonlyArray<string | number>;
+  message: string;
+  minimum?: number | bigint;
+  maximum?: number | bigint;
+  type?: string;
+};
+
+function vendorUpdateValidationMessage(
+  field: (typeof vendorStorefrontHistoryFields)[number],
+  issue: VendorUpdateValidationIssue,
+): string {
+  const label = vendorStorefrontFieldLabels[field];
+
+  if (
+    issue.code === "too_small" &&
+    issue.type === "string" &&
+    typeof issue.minimum === "number"
+  ) {
+    return `${label} must be at least ${issue.minimum} characters.`;
+  }
+  if (
+    issue.code === "too_big" &&
+    issue.type === "string" &&
+    typeof issue.maximum === "number"
+  ) {
+    return `${label} must be no more than ${issue.maximum} characters.`;
+  }
+  if (issue.code === "invalid_enum_value" && field === "plan") {
+    return "Choose a valid plan.";
+  }
+
+  return issue.message;
+}
+
+function vendorUpdateFieldErrors(
+  issues: ReadonlyArray<VendorUpdateValidationIssue>,
+): Record<string, string> {
+  const fieldErrors: Record<string, string> = {};
+
+  for (const issue of issues) {
+    const field = issue.path[0];
+    if (
+      typeof field !== "string" ||
+      !vendorStorefrontHistoryFields.includes(
+        field as (typeof vendorStorefrontHistoryFields)[number],
+      )
+    ) {
+      continue;
+    }
+
+    const storefrontField =
+      field as (typeof vendorStorefrontHistoryFields)[number];
+    fieldErrors[storefrontField] ??= vendorUpdateValidationMessage(
+      storefrontField,
+      issue,
+    );
+  }
+
+  return fieldErrors;
+}
+
+function vendorStorefrontValues(
+  vendor: Pick<
+    Vendor,
+    (typeof vendorStorefrontHistoryFields)[number]
+  >,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    vendorStorefrontHistoryFields.map((field) => [field, vendor[field]]),
+  );
+}
+
+function buildVendorStorefrontHistoryChanges(
+  before: Vendor,
+  after: Vendor,
+  fields: readonly string[],
+): Record<string, { from: unknown; to: unknown }> {
+  const beforeValues = vendorStorefrontValues(before);
+  const afterValues = vendorStorefrontValues(after);
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+
+  for (const field of fields) {
+    const from = beforeValues[field] ?? null;
+    const to = afterValues[field] ?? null;
+    if (JSON.stringify(from) !== JSON.stringify(to)) {
+      changes[field] = { from, to };
+    }
+  }
+
+  return changes;
 }
 
 function toVendorReviewer(user: {
@@ -74,7 +201,7 @@ function toVendorReviewer(user: {
     email: primaryEmail,
     firstName: user.firstName,
     lastName: user.lastName,
-    isAdmin: user.publicMetadata.role === "admin",
+    isAdmin: hasAdministratorAccess(user),
     vendorReviewer: user.publicMetadata.vendorReviewer === true,
     updatedAt:
       typeof user.publicMetadata.vendorReviewerUpdatedAt === "string"
@@ -201,10 +328,28 @@ router.get(
       return;
     }
 
-    const history = await db
-      .select()
-      .from(vendorReviewerAccessHistoryTable)
-      .orderBy(desc(vendorReviewerAccessHistoryTable.changedAt));
+    const query = ListVendorReviewerAccessHistoryQueryParams.safeParse(req.query);
+    if (!query.success) {
+      res.status(400).json({ error: query.error.message });
+      return;
+    }
+
+    const { page, limit } = query.data;
+    const offset = (page - 1) * limit;
+    const [history, [{ totalCount }]] = await Promise.all([
+      db
+        .select()
+        .from(vendorReviewerAccessHistoryTable)
+        .orderBy(
+          desc(vendorReviewerAccessHistoryTable.changedAt),
+          desc(vendorReviewerAccessHistoryTable.id),
+        )
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ totalCount: count() })
+        .from(vendorReviewerAccessHistoryTable),
+    ]);
     const userIds = [
       ...new Set(
         history.flatMap((entry) => [entry.targetUserId, entry.actorUserId]),
@@ -219,8 +364,8 @@ router.get(
     );
 
     res.json(
-      ListVendorReviewerAccessHistoryResponse.parse(
-        history.map((entry) => ({
+      ListVendorReviewerAccessHistoryResponse.parse({
+        items: history.map((entry) => ({
           ...entry,
           targetUser: userDetails.get(entry.targetUserId) ?? {
             displayName: null,
@@ -231,7 +376,11 @@ router.get(
             email: null,
           },
         })),
-      ),
+        page,
+        limit,
+        totalCount: Number(totalCount),
+        hasNextPage: offset + history.length < Number(totalCount),
+      }),
     );
   },
 );
@@ -254,32 +403,54 @@ router.patch("/vendor-reviewers/:userId", async (req, res): Promise<void> => {
     return;
   }
 
-  let user;
-  try {
-    user = await clerkClient.users.getUser(params.data.userId);
-  } catch {
+  let updatedUser:
+    | Awaited<ReturnType<typeof clerkClient.users.updateUserMetadata>>
+    | undefined;
+  let targetUserNotFound = false;
+  await db.transaction(async (tx) => {
+    // Keep the Clerk metadata update and its audit row in the same
+    // per-target critical section. Without this lock, two administrators
+    // can race and leave the last response inconsistent with Clerk's
+    // last-written metadata.
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtextextended(${params.data.userId}, 0))`,
+    );
+
+    let user;
+    try {
+      user = await clerkClient.users.getUser(params.data.userId);
+    } catch {
+      targetUserNotFound = true;
+      return;
+    }
+
+    const updatedAt = new Date().toISOString();
+    updatedUser = await clerkClient.users.updateUserMetadata(
+      params.data.userId,
+      {
+        publicMetadata: {
+          ...user.publicMetadata,
+          vendorReviewer: body.data.enabled,
+          vendorReviewerUpdatedAt: updatedAt,
+          vendorReviewerUpdatedBy: actorUserId,
+        },
+      },
+    );
+
+    await tx.insert(vendorReviewerAccessHistoryTable).values({
+      targetUserId: params.data.userId,
+      actorUserId,
+      action: body.data.enabled ? "grant" : "revoke",
+    });
+  });
+
+  if (targetUserNotFound) {
     res.status(404).json({ error: "User not found" });
     return;
   }
-
-  const updatedAt = new Date().toISOString();
-  const updatedUser = await clerkClient.users.updateUserMetadata(
-    params.data.userId,
-    {
-      publicMetadata: {
-        ...user.publicMetadata,
-        vendorReviewer: body.data.enabled,
-        vendorReviewerUpdatedAt: updatedAt,
-        vendorReviewerUpdatedBy: actorUserId,
-      },
-    },
-  );
-
-  await db.insert(vendorReviewerAccessHistoryTable).values({
-    targetUserId: params.data.userId,
-    actorUserId,
-    action: body.data.enabled ? "grant" : "revoke",
-  });
+  if (!updatedUser) {
+    throw new Error("Reviewer access update did not return a user.");
+  }
 
   res.json(UpdateVendorReviewerResponse.parse(toVendorReviewer(updatedUser)));
 });
@@ -358,6 +529,41 @@ router.get("/vendors/:id", async (req, res): Promise<void> => {
   res.json(GetVendorResponse.parse(vendor));
 });
 
+router.get("/vendors/:id/history", async (req, res): Promise<void> => {
+  const userId = authenticatedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Sign in required" });
+    return;
+  }
+
+  const params = GetVendorParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [vendor] = await db
+    .select()
+    .from(vendorsTable)
+    .where(eq(vendorsTable.id, params.data.id));
+  if (!vendor) {
+    res.status(404).json({ error: "Vendor not found" });
+    return;
+  }
+  if (vendor.ownerUserId !== userId && !(await isVendorReviewer(userId))) {
+    res.status(403).json({ error: "Vendor owner or reviewer access required." });
+    return;
+  }
+
+  const history = await db
+    .select()
+    .from(vendorStorefrontHistoryTable)
+    .where(eq(vendorStorefrontHistoryTable.vendorId, vendor.id))
+    .orderBy(desc(vendorStorefrontHistoryTable.changedAt));
+
+  res.json(ListVendorStorefrontHistoryResponse.parse(history));
+});
+
 router.patch("/vendors/:id", async (req, res): Promise<void> => {
   const userId = authenticatedUserId(req);
   if (!userId) {
@@ -366,30 +572,66 @@ router.patch("/vendors/:id", async (req, res): Promise<void> => {
   }
   const params = UpdateVendorParams.safeParse(req.params);
   const body = UpdateVendorBody.safeParse(req.body);
-  if (!params.success || !body.success || Object.keys(body.data).length === 0) {
+  if (!params.success) {
+    res
+      .status(400)
+      .json({ error: "Provide at least one valid storefront field." });
+    return;
+  }
+  if (!body.success) {
+    res.status(422).json({
+      error: "Check the highlighted storefront fields.",
+      fieldErrors: vendorUpdateFieldErrors(body.error.issues),
+    });
+    return;
+  }
+  if (Object.keys(body.data).length === 0) {
     res
       .status(400)
       .json({ error: "Provide at least one valid storefront field." });
     return;
   }
   const admin = await isAdmin(userId);
-  const [vendor] = await db
-    .update(vendorsTable)
-    .set(body.data)
-    .where(
-      admin
-        ? eq(vendorsTable.id, params.data.id)
-        : and(
-            eq(vendorsTable.id, params.data.id),
-            eq(vendorsTable.ownerUserId, userId),
-          ),
-    )
-    .returning();
-  if (!vendor) {
+  const [currentVendor] = await db
+    .select()
+    .from(vendorsTable)
+    .where(eq(vendorsTable.id, params.data.id));
+  if (!currentVendor || (!admin && currentVendor.ownerUserId !== userId)) {
     res.status(404).json({ error: "Vendor not found" });
     return;
   }
-  res.json(UpdateVendorResponse.parse(vendor));
+
+  const changedFields = Object.keys(body.data);
+  const updatedVendor = await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(vendorsTable)
+      .set(body.data)
+      .where(eq(vendorsTable.id, currentVendor.id))
+      .returning();
+    if (!updated) return null;
+
+    const changes = buildVendorStorefrontHistoryChanges(
+      currentVendor,
+      updated,
+      changedFields,
+    );
+    if (Object.keys(changes).length > 0) {
+      await tx.insert(vendorStorefrontHistoryTable).values({
+        vendorId: updated.id,
+        actorUserId: userId,
+        action: "edited",
+        changes,
+      });
+    }
+    return updated;
+  });
+
+  if (!updatedVendor) {
+    res.status(404).json({ error: "Vendor not found" });
+    return;
+  }
+
+  res.json(UpdateVendorResponse.parse(updatedVendor));
 });
 
 router.patch("/vendors/:id/status", async (req, res): Promise<void> => {

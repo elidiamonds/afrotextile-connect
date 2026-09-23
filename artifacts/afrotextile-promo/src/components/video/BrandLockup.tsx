@@ -4,10 +4,10 @@ type BrandMarkVariant = 'dark' | 'light' | 'compact' | 'primary';
 type BrandLockupSize = 'micro' | 'compact' | 'hero';
 
 const MARK_FILES: Record<BrandMarkVariant, string> = {
-  dark: 'threaded-a-dark.svg',
-  light: 'threaded-a-light.svg',
-  compact: 'threaded-a-compact.svg',
-  primary: 'threaded-a-primary.svg',
+  dark: 'official-icon.png',
+  light: 'official-icon.png',
+  compact: 'official-icon.png',
+  primary: 'official-icon.png',
 };
 
 const SIZE_CLASSES: Record<BrandLockupSize, { mark: string; wordmark: string; gap: string }> = {
@@ -45,7 +45,7 @@ export function BrandLockup({
     <>
       <img
         src={`${import.meta.env.BASE_URL}brand/${MARK_FILES[variant]}`}
-        alt="Threaded A mark"
+        alt="Afrotextile official icon"
         className={`${sizeClasses.mark} shrink-0 object-contain`}
       />
       <span

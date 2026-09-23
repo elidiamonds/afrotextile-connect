@@ -221,7 +221,11 @@ const StyleLabPage = () => {
                       </div>
                     </Link>
                     <div className="mt-3">
-                      <Link to={`/store/${product.vendorId}`} className="font-sans text-[10px] uppercase tracking-[0.17em] text-muted-foreground hover:text-primary">{product.vendor}</Link>
+                      {product.commerceSource === "marketplace" ? (
+                        <Link to={`/store/${product.vendorId}`} className="font-sans text-[10px] uppercase tracking-[0.17em] text-muted-foreground hover:text-primary">{product.vendor}</Link>
+                      ) : (
+                        <span className="font-sans text-[10px] uppercase tracking-[0.17em] text-muted-foreground">{product.vendor}</span>
+                      )}
                       <Link to={`/product/${product.id}`} data-testid={`link-style-product-name-${product.id}`} className="block">
                         <h3 className="mt-1 font-serif text-base leading-tight text-foreground group-hover:text-primary">{product.name}</h3>
                       </Link>

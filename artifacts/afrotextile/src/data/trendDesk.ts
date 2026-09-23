@@ -24,6 +24,9 @@ export interface TrendDecision {
 }
 
 export const TREND_DESK_STORAGE_KEY = "afrotextile-trend-desk-decisions-v1";
+// Change this one public URL to switch the board shown in the Trend Desk.
+export const NIGERIAN_FASHION_PINTEREST_BOARD =
+  "https://www.pinterest.com/maryodiaseugbo/nigeria-fashion/";
 
 const nigerianProducts = products.filter((product) => product.category === "Nigerian Styles");
 

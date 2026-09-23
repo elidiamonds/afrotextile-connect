@@ -28,9 +28,9 @@ export default function Cover() {
         </p>
         <div className="flex items-center gap-[2.2vw] mb-[3vh]">
           <img
-            src={`${base}brand/threaded-a-compact.svg`}
+            src={`${base}brand/official-icon.png`}
             crossOrigin="anonymous"
-            alt="Afrotextile Threaded A mark"
+            alt="Afrotextile official icon"
             className="w-[9vw] h-[9vw] object-contain shrink-0"
           />
           <h1

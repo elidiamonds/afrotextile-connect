@@ -3,11 +3,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, Search, Star, ShieldCheck, Truck, Globe, BadgeCheck, Quote, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ProductCard from "@/components/ProductCard";
+import Reveal from "@/components/Reveal";
 import { products, vendors, testimonials } from "@/data/mock";
 import heroMain from "@/assets/afrotextile-boutique.jpg";
 import catFabrics from "@/assets/cat-fabrics.jpg";
-import catMen from "@/assets/editorial-men.jpg";
-import catWomen from "@/assets/editorial-women.jpg";
+import catMen from "@/assets/nigerian-men-pinterest.jpg";
+import catWomen from "@/assets/nigerian-women-pinterest.jpg";
 import catFootwear from "@/assets/cat-footwear.jpg";
 import editorialRunway from "@/assets/editorial-runway.jpg";
 import editorialAccessories from "@/assets/editorial-accessories.jpg";
@@ -46,27 +47,27 @@ const HomePage = () => {
   ];
 
   return (
-    <div className="min-h-screen">
+    <div className="home-page min-h-screen">
       <section className="relative min-h-[92vh] flex items-center overflow-hidden">
         <div className="absolute inset-0">
-          <img src={heroMain} alt="Model wearing a vibrant African print look in a colorful fashion boutique" width={736} height={514} className="w-full h-full object-cover object-center blur-sm scale-105" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/78 to-background/35" />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/10 to-background/35" />
+          <img src={heroMain} alt="Model wearing a vibrant African print look in a colorful fashion boutique" width={736} height={514} className="h-full w-full object-cover object-center opacity-20 md:opacity-100" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/95 to-background/85 md:via-background/90 md:to-background/65" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/65 md:via-background/35 md:to-background/55" />
         </div>
 
         <div className="container mx-auto px-4 relative z-10 pt-16">
-          <div className="max-w-2xl mx-auto text-center space-y-8 animate-fade-up">
-            <span className="inline-block font-sans text-xs uppercase tracking-[0.3em] text-primary border border-primary/30 px-4 py-1.5 rounded-full">
+          <Reveal className="mx-auto max-w-2xl space-y-8 text-center" scale>
+            <span className="inline-block font-sans text-xs uppercase tracking-[0.3em] border border-primary/30 px-4 py-1.5 rounded-full text-[#ab1409] font-extrabold">
               Africa's Premier Fashion Marketplace
             </span>
             <h1 className="text-5xl md:text-7xl font-serif font-bold leading-[1.05] text-foreground">
               Discover the
               <br />
-              <span className="text-gradient-gold">Soul of African</span>
+              <span className="text-primary">Soul of African</span>
               <br />
               Fashion.
             </h1>
-            <p className="text-lg text-muted-foreground max-w-md mx-auto font-sans leading-relaxed">
+            <p className="mx-auto max-w-md font-sans text-lg font-medium leading-relaxed text-foreground">
               From Lagos ateliers to Cape Town boutiques — shop from thousands of verified African designers, fabric merchants, and artisans on one trusted marketplace.
             </p>
 
@@ -77,7 +78,7 @@ const HomePage = () => {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search Ankara, Kente, vendors, accessories…"
-                className="w-full h-14 pl-12 pr-32 rounded-full bg-card/90 backdrop-blur border border-border text-foreground placeholder:text-muted-foreground font-sans text-sm focus:outline-none focus:border-primary transition-colors"
+                className="h-14 w-full rounded-full border border-border bg-card pl-12 pr-32 font-sans text-sm text-foreground placeholder:text-muted-foreground transition-colors focus:border-primary focus:outline-none"
               />
               <Button type="submit" variant="hero" className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full h-11 px-6">
                 Search
@@ -93,30 +94,29 @@ const HomePage = () => {
               </Button>
             </div>
 
-            <div className="flex flex-wrap gap-6 pt-4 justify-center text-xs text-muted-foreground font-sans">
+            <div className="flex flex-wrap justify-center gap-6 pt-4 font-sans text-xs font-medium text-foreground/75">
               <span className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary" /> Verified Vendors</span>
               <span className="flex items-center gap-2"><Truck className="w-4 h-4 text-primary" /> Global Shipping</span>
               <span className="flex items-center gap-2"><Globe className="w-4 h-4 text-primary" /> 40+ Countries</span>
             </div>
-          </div>
+          </Reveal>
         </div>
       </section>
-
       <section className="py-20 md:py-24">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-12 space-y-3">
+          <Reveal className="text-center mb-12 space-y-3">
             <span className="font-sans text-xs uppercase tracking-[0.3em] text-primary">Shop By</span>
             <h2 className="text-3xl md:text-5xl font-serif font-bold text-foreground">Popular Categories</h2>
-          </div>
+          </Reveal>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-4">
             {categoryCards.map((cat) => (
               <Link
                 key={cat.title}
                 to={`/shop?category=${encodeURIComponent(cat.title)}`}
-                className="group relative aspect-[3/4] overflow-hidden rounded-sm bg-muted"
+                className="group interactive-lift relative aspect-[3/4] overflow-hidden rounded-sm bg-muted"
               >
                 <img src={cat.img} alt={cat.title} loading="lazy" width={800} height={800} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent text-[#ffffff]" />
                 <div className="absolute bottom-3 left-3 right-3 text-left">
                   <h3 className="font-serif text-sm md:text-base font-bold text-foreground leading-tight">{cat.title}</h3>
                   <p className="text-[10px] text-muted-foreground font-sans uppercase tracking-wider">{cat.count}</p>
@@ -126,10 +126,9 @@ const HomePage = () => {
           </div>
         </div>
       </section>
-
       <section className="border-y border-border bg-card py-20 md:py-24">
-        <div className="container mx-auto grid gap-10 px-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-          <div className="max-w-xl">
+          <div className="container mx-auto grid gap-10 px-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+           <Reveal className="max-w-xl">
             <div className="mb-5 flex items-center gap-3">
               <span className="h-px w-10 bg-primary" />
               <span className="font-sans text-xs uppercase tracking-[0.3em] text-primary">New / Style Lab</span>
@@ -143,24 +142,23 @@ const HomePage = () => {
             <Button asChild variant="hero" size="lg" className="mt-8">
               <Link to="/style-lab">Build a three-piece look <Sparkles className="ml-1 h-4 w-4" /></Link>
             </Button>
-          </div>
-          <div className="grid grid-cols-[1.05fr_0.95fr] gap-3">
+           </Reveal>
+           <Reveal className="grid grid-cols-[1.05fr_0.95fr] gap-3" delay={100} scale>
             <div className="relative aspect-[4/5] overflow-hidden">
               <img src={editorialRunway} alt="Contemporary African fashion on a gallery runway" loading="lazy" width={1024} height={1024} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
               <span className="absolute bottom-4 left-4 bg-background/85 px-3 py-2 font-sans text-[10px] uppercase tracking-[0.2em] text-primary backdrop-blur">The moving archive</span>
-            </div>
+             </div>
             <div className="grid gap-3">
               <div className="relative aspect-[4/3] overflow-hidden">
                 <img src={editorialLookbook} alt="Editorial lookbook portrait in indigo and cream" loading="lazy" width={1024} height={1024} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
               </div>
               <div className="relative aspect-[4/3] overflow-hidden">
                 <img src={editorialAccessories} alt="Woven accessory editorial still life" loading="lazy" width={1024} height={1024} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
-              </div>
-            </div>
-          </div>
-        </div>
+               </div>
+             </div>
+            </Reveal>
+           </div>
       </section>
-
       <section className="py-20 md:py-24 bg-background">
         <div className="container mx-auto px-4">
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between mb-12">
@@ -176,13 +174,30 @@ const HomePage = () => {
             </Button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {nigerianEdit.map((product) => (
-              <ProductCard key={product.id} product={product} />
+             {nigerianEdit.map((product, index) => (
+               <Reveal key={product.id} delay={index * 55}>
+                 <ProductCard product={product} />
+               </Reveal>
             ))}
           </div>
         </div>
       </section>
-
+       <section className="border-y border-border bg-card py-16 md:py-20">
+         <div className="container mx-auto px-4">
+           <Reveal className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+             <div className="max-w-2xl">
+               <span className="font-sans text-xs uppercase tracking-[0.3em] text-primary">Live visual research</span>
+               <h2 className="mt-3 text-3xl font-serif font-bold text-foreground md:text-5xl">Nigeria, through the Pinterest lens.</h2>
+               <p className="mt-4 max-w-xl font-sans leading-relaxed text-muted-foreground">
+                  Explore Nigerian fashion inspiration through our embedded Pinterest board, then shop the local edit here.
+               </p>
+             </div>
+             <Button asChild variant="heroOutline" className="self-start md:self-auto">
+               <Link to="/trend-desk">Open Trend Desk <ArrowRight className="ml-2 h-4 w-4" /></Link>
+             </Button>
+           </Reveal>
+         </div>
+       </section>
       <section className="py-20 md:py-24 bg-card">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12 space-y-2">
@@ -190,8 +205,10 @@ const HomePage = () => {
             <h2 className="text-3xl md:text-5xl font-serif font-bold text-foreground">Trending Across Africa</h2>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {trending.map((product) => (
-              <ProductCard key={product.id} product={product} />
+             {trending.map((product, index) => (
+               <Reveal key={product.id} delay={index * 55}>
+                 <ProductCard product={product} />
+               </Reveal>
             ))}
           </div>
           <div className="text-center mt-10">
@@ -201,7 +218,6 @@ const HomePage = () => {
           </div>
         </div>
       </section>
-
       <section className="py-20 md:py-24">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12 space-y-3">
@@ -212,33 +228,49 @@ const HomePage = () => {
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {vendors.slice(0, 6).map((v) => (
-              <Link to={`/store/${v.id}`} key={v.id} className="group bg-card rounded-sm border border-border hover:border-primary/50 transition-all overflow-hidden">
-                <div className="aspect-[5/3] overflow-hidden bg-muted">
-                  <img src={v.logo} alt={v.name} loading="lazy" width={800} height={1000} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                </div>
-                <div className="p-5">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-serif text-lg font-semibold text-foreground group-hover:text-primary transition-colors">{v.name}</h3>
-                      <BadgeCheck className="w-4 h-4 text-primary" />
+             {vendors.slice(0, 6).map((v, index) => {
+              const content = (
+                <>
+                  <div className="aspect-[5/3] overflow-hidden bg-muted">
+                    <img src={v.logo} alt={v.name} loading="lazy" width={800} height={1000} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                  </div>
+                  <div className="p-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-serif text-lg font-semibold text-foreground group-hover:text-primary transition-colors">{v.name}</h3>
+                        <BadgeCheck className="w-4 h-4 text-primary" />
+                      </div>
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground font-sans">
+                        <Star className="w-3 h-3 fill-primary text-primary" />{v.rating}
+                      </span>
                     </div>
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground font-sans">
-                      <Star className="w-3 h-3 fill-primary text-primary" />{v.rating}
+                    <p className="text-xs text-muted-foreground font-sans uppercase tracking-wider mb-3">{v.location}</p>
+                    <p className="text-sm text-muted-foreground font-sans leading-relaxed line-clamp-2 mb-3">{v.description}</p>
+                    <span className="text-xs text-primary font-sans uppercase tracking-wider inline-flex items-center gap-1">
+                      {v.isDemo ? "Editorial preview" : <>Visit Store <ArrowRight className="w-3 h-3" /></>}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground font-sans uppercase tracking-wider mb-3">{v.location}</p>
-                  <p className="text-sm text-muted-foreground font-sans leading-relaxed line-clamp-2 mb-3">{v.description}</p>
-                  <span className="text-xs text-primary font-sans uppercase tracking-wider inline-flex items-center gap-1">
-                    Visit Store <ArrowRight className="w-3 h-3" />
-                  </span>
-                </div>
-              </Link>
-            ))}
+                </>
+              );
+               const className = "group interactive-lift bg-card rounded-sm border border-border hover:border-primary/50 transition-all overflow-hidden";
+
+              return v.isDemo ? (
+                 <Reveal key={v.id} delay={index * 55}>
+                   <article className={className} aria-label={`${v.name} editorial preview`}>
+                     {content}
+                   </article>
+                 </Reveal>
+              ) : (
+                 <Reveal key={v.id} delay={index * 55}>
+                   <Link to={`/store/${v.id}`} className={className}>
+                     {content}
+                   </Link>
+                 </Reveal>
+              );
+            })}
           </div>
         </div>
       </section>
-
       <section className="py-20 md:py-24 bg-card">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12 space-y-3">
@@ -246,17 +278,18 @@ const HomePage = () => {
             <h2 className="text-3xl md:text-5xl font-serif font-bold text-foreground">Regional Collections</h2>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {regionCards.map((r) => (
-              <Link key={r.name} to={`/shop?region=${encodeURIComponent(r.name)}`} className="group p-6 md:p-8 bg-background rounded-sm border border-border hover:border-primary/50 transition-colors">
+             {regionCards.map((r, index) => (
+               <Reveal key={r.name} delay={index * 60}>
+               <Link to={`/shop?region=${encodeURIComponent(r.name)}`} className="group interactive-lift block p-6 md:p-8 bg-background rounded-sm border border-border hover:border-primary/50 transition-colors">
                 <p className="font-sans text-xs uppercase tracking-[0.3em] text-primary mb-2">{r.count}+ products</p>
                 <h3 className="font-serif text-xl md:text-2xl font-bold text-foreground mb-1 group-hover:text-primary transition-colors">{r.name}</h3>
                 <p className="text-sm text-muted-foreground font-sans">{r.desc}</p>
-              </Link>
+               </Link>
+               </Reveal>
             ))}
           </div>
         </div>
       </section>
-
       <section className="py-20 md:py-24">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12 space-y-2">
@@ -264,13 +297,14 @@ const HomePage = () => {
             <h2 className="text-3xl md:text-5xl font-serif font-bold text-foreground">New Arrivals</h2>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {newArrivals.map((product) => (
-              <ProductCard key={product.id} product={product} />
+             {newArrivals.map((product, index) => (
+               <Reveal key={product.id} delay={index * 55}>
+                 <ProductCard product={product} />
+               </Reveal>
             ))}
           </div>
         </div>
       </section>
-
       <section className="py-20 md:py-24 bg-card bg-pattern-african">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12 space-y-3">
@@ -278,20 +312,21 @@ const HomePage = () => {
             <h2 className="text-3xl md:text-5xl font-serif font-bold text-foreground">Success Stories</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {testimonials.map((t, i) => (
-              <div key={i} className="bg-background border border-border rounded-sm p-8 space-y-4">
+             {testimonials.map((t, i) => (
+               <Reveal key={i} delay={i * 70}>
+               <div className="interactive-lift bg-background border border-border rounded-sm p-8 space-y-4">
                 <Quote className="w-8 h-8 text-primary opacity-50" />
                 <p className="text-foreground font-serif italic text-lg leading-relaxed">"{t.quote}"</p>
                 <div className="pt-4 border-t border-border">
                   <p className="text-sm font-sans font-semibold text-foreground">{t.author}</p>
                   <p className="text-xs text-muted-foreground font-sans">{t.role} · {t.location}</p>
+                 </div>
                 </div>
-              </div>
+                </Reveal>
             ))}
           </div>
         </div>
       </section>
-
       <section className="py-20 md:py-24">
         <div className="container mx-auto px-4">
           <div className="bg-gradient-gold rounded-sm p-10 md:p-16 text-center max-w-4xl mx-auto">
@@ -308,7 +343,6 @@ const HomePage = () => {
           </div>
         </div>
       </section>
-
       <section className="py-20 md:py-24 bg-card">
         <div className="container mx-auto px-4 text-center max-w-2xl">
           <span className="font-sans text-xs uppercase tracking-[0.3em] text-primary">Stay Connected</span>

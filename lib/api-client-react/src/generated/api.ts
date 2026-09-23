@@ -22,6 +22,7 @@ import type {
 import type {
   HealthStatus,
   ListProductsParams,
+  ListVendorReviewerAccessHistoryParams,
   ListVendorReviewersParams,
   ListVendorsParams,
   Order,
@@ -29,19 +30,23 @@ import type {
   OrderItemStatusUpdate,
   Product,
   ProductHistoryEntry,
+  ProductImageCleanupRetryResult,
+  ProductImageCleanupStatus,
   ProductImageUpload,
   ProductImageUploadInput,
   ProductInput,
   ProductUpdate,
   Storefront,
+  StorefrontValidationError,
   Vendor,
   VendorInput,
   VendorOrder,
   VendorReviewer,
-  VendorReviewerAccessHistoryEntry,
+  VendorReviewerAccessHistoryPage,
   VendorReviewerPage,
   VendorReviewerUpdate,
   VendorStatusUpdate,
+  VendorStorefrontHistoryEntry,
   VendorUpdate
 } from './api.schemas';
 
@@ -388,20 +393,27 @@ export function useListVendorReviewers<TData = Awaited<ReturnType<typeof listVen
 
 
 
-export const getListVendorReviewerAccessHistoryUrl = () => {
+export const getListVendorReviewerAccessHistoryUrl = (params?: ListVendorReviewerAccessHistoryParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/vendor-reviewer-access-history`
+  return stringifiedParams.length > 0 ? `/api/vendor-reviewer-access-history?${stringifiedParams}` : `/api/vendor-reviewer-access-history`
 }
 
 /**
  * @summary List the vendor reviewer access audit history
  */
-export const listVendorReviewerAccessHistory = async ( options?: RequestInit): Promise<VendorReviewerAccessHistoryEntry[]> => {
+export const listVendorReviewerAccessHistory = async (params?: ListVendorReviewerAccessHistoryParams, options?: RequestInit): Promise<VendorReviewerAccessHistoryPage> => {
 
-  return customFetch<VendorReviewerAccessHistoryEntry[]>(getListVendorReviewerAccessHistoryUrl(),
+  return customFetch<VendorReviewerAccessHistoryPage>(getListVendorReviewerAccessHistoryUrl(params),
   {
     ...options,
     method: 'GET'
@@ -414,23 +426,23 @@ export const listVendorReviewerAccessHistory = async ( options?: RequestInit): P
 
 
 
-export const getListVendorReviewerAccessHistoryQueryKey = () => {
+export const getListVendorReviewerAccessHistoryQueryKey = (params?: ListVendorReviewerAccessHistoryParams,) => {
     return [
-    `/api/vendor-reviewer-access-history`
+    `/api/vendor-reviewer-access-history`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListVendorReviewerAccessHistoryQueryOptions = <TData = Awaited<ReturnType<typeof listVendorReviewerAccessHistory>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listVendorReviewerAccessHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListVendorReviewerAccessHistoryQueryOptions = <TData = Awaited<ReturnType<typeof listVendorReviewerAccessHistory>>, TError = ErrorType<void>>(params?: ListVendorReviewerAccessHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listVendorReviewerAccessHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListVendorReviewerAccessHistoryQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListVendorReviewerAccessHistoryQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listVendorReviewerAccessHistory>>> = ({ signal }) => listVendorReviewerAccessHistory({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listVendorReviewerAccessHistory>>> = ({ signal }) => listVendorReviewerAccessHistory(params, { signal, ...requestOptions });
 
 
 
@@ -448,11 +460,11 @@ export type ListVendorReviewerAccessHistoryQueryError = ErrorType<void>
  */
 
 export function useListVendorReviewerAccessHistory<TData = Awaited<ReturnType<typeof listVendorReviewerAccessHistory>>, TError = ErrorType<void>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listVendorReviewerAccessHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: ListVendorReviewerAccessHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listVendorReviewerAccessHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListVendorReviewerAccessHistoryQueryOptions(options)
+  const queryOptions = getListVendorReviewerAccessHistoryQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -464,6 +476,154 @@ export function useListVendorReviewerAccessHistory<TData = Awaited<ReturnType<ty
 
 
 
+
+export const getGetProductImageCleanupStatusUrl = () => {
+
+
+
+
+  return `/api/product-image-cleanup`
+}
+
+/**
+ * Returns retry counts and sanitized cleanup errors for administrators.
+ * @summary Get pending product image cleanup status
+ */
+export const getProductImageCleanupStatus = async ( options?: RequestInit): Promise<ProductImageCleanupStatus> => {
+
+  return customFetch<ProductImageCleanupStatus>(getGetProductImageCleanupStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProductImageCleanupStatusQueryKey = () => {
+    return [
+    `/api/product-image-cleanup`
+    ] as const;
+    }
+
+
+export const getGetProductImageCleanupStatusQueryOptions = <TData = Awaited<ReturnType<typeof getProductImageCleanupStatus>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProductImageCleanupStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProductImageCleanupStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProductImageCleanupStatus>>> = ({ signal }) => getProductImageCleanupStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProductImageCleanupStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProductImageCleanupStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getProductImageCleanupStatus>>>
+export type GetProductImageCleanupStatusQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get pending product image cleanup status
+ */
+
+export function useGetProductImageCleanupStatus<TData = Awaited<ReturnType<typeof getProductImageCleanupStatus>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProductImageCleanupStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProductImageCleanupStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRetryProductImageCleanupUrl = (cleanupId: string,) => {
+
+
+
+
+  return `/api/product-image-cleanup/${cleanupId}/retry`
+}
+
+/**
+ * @summary Retry one failed product image cleanup
+ */
+export const retryProductImageCleanup = async (cleanupId: string, options?: RequestInit): Promise<ProductImageCleanupRetryResult> => {
+
+  return customFetch<ProductImageCleanupRetryResult>(getRetryProductImageCleanupUrl(cleanupId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRetryProductImageCleanupMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryProductImageCleanup>>, TError,{cleanupId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof retryProductImageCleanup>>, TError,{cleanupId: string}, TContext> => {
+
+const mutationKey = ['retryProductImageCleanup'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retryProductImageCleanup>>, {cleanupId: string}> = (props) => {
+          const {cleanupId} = props ?? {};
+
+          return  retryProductImageCleanup(cleanupId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RetryProductImageCleanupMutationResult = NonNullable<Awaited<ReturnType<typeof retryProductImageCleanup>>>
+
+    export type RetryProductImageCleanupMutationError = ErrorType<void>
+
+    /**
+ * @summary Retry one failed product image cleanup
+ */
+export const useRetryProductImageCleanup = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryProductImageCleanup>>, TError,{cleanupId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof retryProductImageCleanup>>,
+        TError,
+        {cleanupId: string},
+        TContext
+      > => {
+      return useMutation(getRetryProductImageCleanupMutationOptions(options));
+    }
 
 export const getUpdateVendorReviewerUrl = (userId: string,) => {
 
@@ -646,7 +806,7 @@ export const getGetVendorQueryKey = (id: string,) => {
     }
 
 
-export const getGetVendorQueryOptions = <TData = Awaited<ReturnType<typeof getVendor>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVendor>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetVendorQueryOptions = <TData = Awaited<ReturnType<typeof getVendor>>, TError = ErrorType<void | StorefrontValidationError>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVendor>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -665,14 +825,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetVendorQueryResult = NonNullable<Awaited<ReturnType<typeof getVendor>>>
-export type GetVendorQueryError = ErrorType<void>
+export type GetVendorQueryError = ErrorType<void | StorefrontValidationError>
 
 
 /**
  * @summary Get a vendor or application
  */
 
-export function useGetVendor<TData = Awaited<ReturnType<typeof getVendor>>, TError = ErrorType<void>>(
+export function useGetVendor<TData = Awaited<ReturnType<typeof getVendor>>, TError = ErrorType<void | StorefrontValidationError>>(
  id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVendor>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -760,6 +920,83 @@ export const useUpdateVendor = <TError = ErrorType<void>,
       > => {
       return useMutation(getUpdateVendorMutationOptions(options));
     }
+
+export const getListVendorStorefrontHistoryUrl = (id: string,) => {
+
+
+
+
+  return `/api/vendors/${id}/history`
+}
+
+/**
+ * @summary List the change history for a vendor storefront
+ */
+export const listVendorStorefrontHistory = async (id: string, options?: RequestInit): Promise<VendorStorefrontHistoryEntry[]> => {
+
+  return customFetch<VendorStorefrontHistoryEntry[]>(getListVendorStorefrontHistoryUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListVendorStorefrontHistoryQueryKey = (id: string,) => {
+    return [
+    `/api/vendors/${id}/history`
+    ] as const;
+    }
+
+
+export const getListVendorStorefrontHistoryQueryOptions = <TData = Awaited<ReturnType<typeof listVendorStorefrontHistory>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listVendorStorefrontHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListVendorStorefrontHistoryQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listVendorStorefrontHistory>>> = ({ signal }) => listVendorStorefrontHistory(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listVendorStorefrontHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListVendorStorefrontHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof listVendorStorefrontHistory>>>
+export type ListVendorStorefrontHistoryQueryError = ErrorType<void>
+
+
+/**
+ * @summary List the change history for a vendor storefront
+ */
+
+export function useListVendorStorefrontHistory<TData = Awaited<ReturnType<typeof listVendorStorefrontHistory>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listVendorStorefrontHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListVendorStorefrontHistoryQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getUpdateVendorStatusUrl = (id: string,) => {
 

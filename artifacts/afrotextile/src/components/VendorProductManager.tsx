@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetStorefrontQueryKey,
@@ -6,6 +6,7 @@ import {
   getListProductHistoryQueryKey,
   getListVendorProductsQueryKey,
   getListVendorProductsForReviewQueryKey,
+  createProduct as createProductRequest,
   requestProductImageUpload,
   type Product,
   type ProductHistoryEntry,
@@ -13,12 +14,14 @@ import {
   useListProductHistory,
   useListVendorProducts,
   useListVendorProductsForReview,
+  updateProduct as updateProductRequest,
   useUpdateProduct,
 } from "@workspace/api-client-react";
 import { History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import ShopifyVendorProductManager, { ShopifyVendorReviewCatalog } from "./ShopifyVendorProductManager";
 
 type ProductForm = {
   name: string;
@@ -50,6 +53,7 @@ const emptyForm: ProductForm = {
 
 const inputClass =
   "mt-2 h-11 w-full border border-input bg-background px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary focus:ring-1 focus:ring-primary";
+const reviewerCatalogRefreshInterval = 5_000;
 
 const historyFieldLabels: Record<string, string> = {
   name: "Name",
@@ -71,12 +75,20 @@ function formatHistoryValue(value: unknown) {
   return String(value);
 }
 
-function ProductHistory({ productId }: { productId: string }) {
+function ProductHistory({
+  productId,
+  liveRefresh = false,
+}: {
+  productId: string;
+  liveRefresh?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const historyQuery = useListProductHistory(productId, {
     query: {
       enabled: open,
       queryKey: getListProductHistoryQueryKey(productId),
+      refetchInterval: liveRefresh ? reviewerCatalogRefreshInterval : false,
+      refetchIntervalInBackground: false,
     },
   });
 
@@ -160,13 +172,27 @@ function productToForm(product: Product): ProductForm {
   };
 }
 
+function newSaveRequestKey(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+}
+
 function uploadFileWithProgress(
   uploadURL: string,
   file: File,
   onProgress: (progress: number) => void,
+  signal?: AbortSignal,
 ) {
   return new Promise<void>((resolve, reject) => {
     const request = new XMLHttpRequest();
+    const abortRequest = () => request.abort();
+    const cleanup = () => {
+      signal?.removeEventListener("abort", abortRequest);
+    };
+    const rejectWithCleanup = (error: Error) => {
+      cleanup();
+      reject(error);
+    };
+
     request.open("PUT", uploadURL);
     request.setRequestHeader("Content-Type", file.type);
     request.upload.addEventListener("progress", (event) => {
@@ -177,22 +203,43 @@ function uploadFileWithProgress(
     request.addEventListener("load", () => {
       if (request.status >= 200 && request.status < 300) {
         onProgress(100);
+        cleanup();
         resolve();
         return;
       }
-      reject(new Error(`Image upload failed (${request.status})`));
+      rejectWithCleanup(new Error(`Image upload failed (${request.status})`));
     });
     request.addEventListener("error", () => {
-      reject(new Error("Network error while uploading the image."));
+      rejectWithCleanup(new Error("Network error while uploading the image."));
     });
     request.addEventListener("abort", () => {
-      reject(new Error("Image upload was canceled."));
+      const error = new Error("Image upload was canceled.");
+      error.name = "AbortError";
+      rejectWithCleanup(error);
     });
-    request.send(file);
+    signal?.addEventListener("abort", abortRequest, { once: true });
+    if (signal?.aborted) {
+      request.abort();
+      return;
+    }
+    try {
+      request.send(file);
+    } catch (error) {
+      rejectWithCleanup(
+        error instanceof Error
+          ? error
+          : new Error("Could not start the image upload."),
+      );
+    }
   });
 }
 
-export default function VendorProductManager({
+type ActiveImageUpload = {
+  canceled: boolean;
+  controller: AbortController;
+};
+
+function LegacyVendorProductManager({
   vendorId,
   approved,
   reviewOnly = false,
@@ -214,11 +261,13 @@ export default function VendorProductManager({
     query: {
       queryKey: getListVendorProductsForReviewQueryKey(vendorId),
       enabled: approved && reviewOnly,
+      refetchInterval: reviewOnly ? reviewerCatalogRefreshInterval : false,
+      refetchIntervalInBackground: false,
     },
   });
   const catalogQuery = reviewOnly ? reviewCatalogQuery : managedCatalogQuery;
   const products = catalogQuery.data ?? [];
-  const { isLoading, isError } = catalogQuery;
+  const { isLoading, isError, isFetching, refetch } = catalogQuery;
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -227,33 +276,54 @@ export default function VendorProductManager({
     file: File;
     message: string;
   } | null>(null);
+  const [cancelingImageUpload, setCancelingImageUpload] = useState(false);
+  const cleanupInFlight = useRef(new Set<string>());
+  const temporaryImageReferences = useRef(new Set<string>());
+  const activeImageUpload = useRef<ActiveImageUpload | null>(null);
+  const createRequestKey = useRef<string | null>(null);
+  const expectedUpdatedAt = useRef<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const deleteUploadedImage = async (imageReference: string) => {
+  const deleteUploadedImage = async (
+    imageReference: string,
+    keepalive = false,
+  ) => {
     if (!imageReference.startsWith("/objects/uploads/")) return;
+    if (cleanupInFlight.current.has(imageReference)) return;
+    cleanupInFlight.current.add(imageReference);
 
     try {
       const response = await fetch(`/api/vendors/${vendorId}/product-image`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ objectPath: imageReference }),
+        ...(keepalive ? { keepalive: true } : {}),
       });
       if (!response.ok && response.status !== 409) {
         throw new Error(`Image cleanup failed (${response.status})`);
       }
+      temporaryImageReferences.current.delete(imageReference);
     } catch (error) {
       console.error("Could not clean up product image", error);
+    } finally {
+      cleanupInFlight.current.delete(imageReference);
     }
   };
 
   useEffect(() => {
-    if (!form.imageUrl) return;
-
-    return () => {
-      void deleteUploadedImage(form.imageUrl);
+    const cleanupTemporaryImages = () => {
+      for (const imageReference of temporaryImageReferences.current) {
+        void deleteUploadedImage(imageReference, true);
+      }
     };
-  }, [form.imageUrl, vendorId]);
+
+    window.addEventListener("pagehide", cleanupTemporaryImages);
+    return () => {
+      window.removeEventListener("pagehide", cleanupTemporaryImages);
+      cleanupTemporaryImages();
+    };
+  }, [vendorId]);
 
   const refreshCatalog = () => {
     queryClient.invalidateQueries({
@@ -267,42 +337,64 @@ export default function VendorProductManager({
 
   const createProduct = useCreateProduct({
     mutation: {
-      onSuccess: () => {
+      mutationFn: ({ id, data }) =>
+        createProductRequest(id, data, {
+          headers: {
+            "Idempotency-Key": (createRequestKey.current ??=
+              newSaveRequestKey()),
+          },
+        }),
+      onSuccess: (_data, variables) => {
         refreshCatalog();
+        if (variables.data.imageUrl) {
+          temporaryImageReferences.current.delete(variables.data.imageUrl);
+        }
         setForm(emptyForm);
+        createRequestKey.current = null;
         toast({ title: "Product added to your catalog" });
       },
       onError: (error) =>
-        (void deleteUploadedImage(form.imageUrl),
         toast({
           title: "Could not add product",
           description: error instanceof Error ? error.message : undefined,
           variant: "destructive",
-        })),
+        }),
     },
   });
   const updateProduct = useUpdateProduct({
     mutation: {
-      onSuccess: () => {
+      mutationFn: ({ id, data }) =>
+        updateProductRequest(id, data, {
+          headers: expectedUpdatedAt.current
+            ? { "If-Match": expectedUpdatedAt.current }
+            : undefined,
+        }),
+      onSuccess: (_data, variables) => {
         refreshCatalog();
+        if (variables.data.imageUrl) {
+          temporaryImageReferences.current.delete(variables.data.imageUrl);
+        }
         setEditingId(null);
         setForm(emptyForm);
+        expectedUpdatedAt.current = null;
         toast({ title: "Product updated" });
       },
       onError: (error) =>
-        (void deleteUploadedImage(form.imageUrl),
         toast({
           title: "Could not update product",
           description: error instanceof Error ? error.message : undefined,
           variant: "destructive",
-        })),
+        }),
     },
   });
 
   useEffect(() => {
     if (!editingId) return;
     const current = products.find((product) => product.id === editingId);
-    if (current) setForm(productToForm(current));
+    if (current) {
+      expectedUpdatedAt.current = current.updatedAt;
+      setForm(productToForm(current));
+    }
   }, [editingId, products]);
 
   const setField = <K extends keyof ProductForm>(
@@ -336,6 +428,12 @@ export default function VendorProductManager({
     setUploadingImage(true);
     setUploadProgress(0);
     setFailedImageUpload(null);
+    setCancelingImageUpload(false);
+    const operation: ActiveImageUpload = {
+      canceled: false,
+      controller: new AbortController(),
+    };
+    activeImageUpload.current = operation;
     let objectPath = "";
     try {
       const upload = await requestProductImageUpload(vendorId, {
@@ -344,7 +442,25 @@ export default function VendorProductManager({
         contentType: file.type,
       });
       objectPath = upload.objectPath;
-      await uploadFileWithProgress(upload.uploadURL, file, setUploadProgress);
+      temporaryImageReferences.current.add(objectPath);
+      if (operation.canceled) {
+        await deleteUploadedImage(objectPath);
+        return;
+      }
+      await uploadFileWithProgress(
+        upload.uploadURL,
+        file,
+        setUploadProgress,
+        operation.controller.signal,
+      );
+      const previousImageReference = form.imageUrl;
+      if (
+        previousImageReference &&
+        previousImageReference !== upload.objectPath &&
+        temporaryImageReferences.current.has(previousImageReference)
+      ) {
+        void deleteUploadedImage(previousImageReference);
+      }
       setForm((current) => ({
         ...current,
         imageUrl: upload.objectPath,
@@ -357,12 +473,23 @@ export default function VendorProductManager({
       });
     } catch (error) {
       if (objectPath) {
-        void deleteUploadedImage(objectPath);
+        await deleteUploadedImage(objectPath);
       }
-      const message =
+      if (operation.canceled) {
+        setFailedImageUpload(null);
+        toast({
+          title: "Photo upload canceled",
+          description: "Your product details are still here.",
+        });
+        return;
+      }
+      const errorMessage =
         error instanceof Error
           ? error.message
           : "The image could not be uploaded. Try again.";
+      const message = objectPath
+        ? errorMessage
+        : `Could not prepare the photo upload. ${errorMessage}`;
       setFailedImageUpload({ file, message });
       toast({
         title: "Could not upload photo",
@@ -370,9 +497,21 @@ export default function VendorProductManager({
         variant: "destructive",
       });
     } finally {
+      if (activeImageUpload.current === operation) {
+        activeImageUpload.current = null;
+      }
       setUploadingImage(false);
       setUploadProgress(null);
+      setCancelingImageUpload(false);
     }
+  };
+
+  const cancelImageUpload = () => {
+    const operation = activeImageUpload.current;
+    if (!operation || !uploadingImage || operation.canceled) return;
+    operation.canceled = true;
+    setCancelingImageUpload(true);
+    operation.controller.abort();
   };
 
   const uploadImage = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -382,13 +521,21 @@ export default function VendorProductManager({
   };
 
   const cancelForm = () => {
-    if (form.imageUrl) {
+    if (uploadingImage) {
+      cancelImageUpload();
+      return;
+    }
+    if (
+      form.imageUrl &&
+      temporaryImageReferences.current.has(form.imageUrl)
+    ) {
       void deleteUploadedImage(form.imageUrl);
     }
     setUploadProgress(null);
     setFailedImageUpload(null);
     setEditingId(null);
     setForm(emptyForm);
+    expectedUpdatedAt.current = null;
   };
 
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -436,6 +583,7 @@ export default function VendorProductManager({
   };
 
   const archive = (product: Product) => {
+    expectedUpdatedAt.current = product.updatedAt;
     updateProduct.mutate({
       id: product.id,
       data: { status: "archived" },
@@ -565,11 +713,15 @@ export default function VendorProductManager({
                   />
                 )}
                 <div className="space-y-2">
-                  <label className="inline-flex cursor-pointer items-center border border-primary px-4 py-2 text-sm text-primary transition-colors hover:bg-primary/5">
+                  <label
+                    className="inline-flex cursor-pointer items-center border border-primary px-4 py-2 text-sm text-primary transition-colors hover:bg-primary/5 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2"
+                    data-testid="product-photo-trigger"
+                  >
                     <input
                       className="sr-only"
                       type="file"
                       accept="image/*"
+                      aria-label="Product photo"
                       onChange={uploadImage}
                       disabled={busy}
                     />
@@ -593,7 +745,9 @@ export default function VendorProductManager({
                     >
                       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
                         <span className="font-medium text-foreground">
-                          Uploading product photo…
+                          {cancelingImageUpload
+                            ? "Canceling photo upload…"
+                            : "Uploading product photo…"}
                         </span>
                         <span className="text-muted-foreground">
                           {uploadProgress ?? 0}%
@@ -605,8 +759,20 @@ export default function VendorProductManager({
                         className="h-2"
                       />
                       <p className="text-xs text-muted-foreground">
-                        Save product will be available when the upload finishes.
+                        {cancelingImageUpload
+                          ? "Cleaning up the temporary photo…"
+                          : "Save product will be available when the upload finishes."}
                       </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={cancelImageUpload}
+                        disabled={cancelingImageUpload}
+                        aria-label="Cancel photo upload"
+                      >
+                        {cancelingImageUpload ? "Canceling…" : "Cancel upload"}
+                      </Button>
                     </div>
                   )}
                   {!uploadingImage &&
@@ -705,11 +871,22 @@ export default function VendorProductManager({
             <p className="text-sm text-muted-foreground">Loading catalog…</p>
           )}
           {isError && (
-            <p className="text-sm text-destructive">
-              {reviewOnly
-                ? "This vendor catalog could not be loaded."
-                : "Your catalog could not be loaded."}
-            </p>
+            <div className="flex flex-col items-start gap-3 border border-destructive/40 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-destructive">
+                {reviewOnly
+                  ? "This vendor catalog could not be loaded."
+                  : "Your catalog could not be loaded."}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => refetch()}
+                disabled={isFetching}
+              >
+                {isFetching ? "Retrying catalog…" : "Retry catalog"}
+              </Button>
+            </div>
           )}
           {!isLoading && !isError && products.length === 0 && (
             <div className="border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
@@ -772,7 +949,10 @@ export default function VendorProductManager({
                     </div>
                   )}
                 </div>
-                <ProductHistory productId={product.id} />
+                <ProductHistory
+                  productId={product.id}
+                  liveRefresh={reviewOnly}
+                />
               </article>
             ))}
           </div>
@@ -780,4 +960,15 @@ export default function VendorProductManager({
       )}
     </section>
   );
+}
+
+export default function VendorProductManager(props: {
+  vendorId: string; approved: boolean; reviewOnly?: boolean;
+}) {
+  return props.reviewOnly
+    ? <>
+        <LegacyVendorProductManager {...props} />
+        {props.approved && <ShopifyVendorReviewCatalog vendorId={props.vendorId} />}
+      </>
+    : <ShopifyVendorProductManager vendorId={props.vendorId} approved={props.approved} />;
 }

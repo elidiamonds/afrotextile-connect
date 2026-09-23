@@ -1,3 +1,5 @@
+import { dropReviewedSchemas } from "../src/lib/legacySchemaCleanup";
+
 const legacySchemaPattern =
   /^vendor_permission_(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[0-9a-f]{32})$/i;
 const legacySchemaSqlPattern =
@@ -11,7 +13,11 @@ function usage(): string {
     --drop <schema-name>[,<schema-name>...] --confirm
 
 The default mode is --list. Dropping requires exact schema names from a
-reviewed listing and the --confirm flag.`;
+reviewed listing and the --confirm flag. A schema removed after review is
+reported and skipped. The drop phase is atomic: if a schema drop fails, the
+transaction is rolled back and no schemas are removed. The error reports the
+schemas attempted; a rollback or commit failure means the final schema state
+may be uncertain.`;
 }
 
 function quoteIdentifier(identifier: string): string {
@@ -136,17 +142,13 @@ async function main() {
       if (!legacySchemas.includes(schemaName)) {
         throw new Error(
           `Schema was not present in the reviewed listing: ${schemaName}. ` +
-            "Run --list again and review the current candidates.",
+            "It may already have been removed by another cleanup run; " +
+            "run --list again and review the current candidates.",
         );
       }
     }
 
-    console.log("Dropping reviewed legacy vendor test schemas:");
-    for (const schemaName of requestedSchemas) {
-      console.log(`- ${schemaName}`);
-      await pool.query(`DROP SCHEMA ${quoteIdentifier(schemaName)} CASCADE`);
-    }
-    console.log(`Dropped ${requestedSchemas.length} schema(s).`);
+    await dropReviewedSchemas(pool, requestedSchemas);
   } finally {
     await pool.end();
   }

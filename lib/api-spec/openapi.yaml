@@ -114,19 +114,73 @@ paths:
       operationId: listVendorReviewerAccessHistory
       tags: [vendors]
       summary: List the vendor reviewer access audit history
+      parameters:
+        - in: query
+          name: page
+          description: One-based page number, ordered newest first
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10000
+            default: 1
+        - in: query
+          name: limit
+          description: Number of audit entries to return per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 25
       responses:
         "200":
-          description: Immutable reviewer access changes, newest first
+          description: Immutable reviewer access changes, newest first within the paginated history
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/VendorReviewerAccessHistoryEntry"
+                $ref: "#/components/schemas/VendorReviewerAccessHistoryPage"
         "401":
           description: Sign in required
         "403":
           description: Admin access required
+  /product-image-cleanup:
+    get:
+      operationId: getProductImageCleanupStatus
+      tags: [products]
+      summary: Get pending product image cleanup status
+      description: Returns retry counts and sanitized cleanup errors for administrators.
+      responses:
+        "200":
+          description: Pending product image cleanup status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductImageCleanupStatus"
+        "401":
+          description: Sign in required
+        "403":
+          description: Admin access required
+  /product-image-cleanup/{cleanupId}/retry:
+    post:
+      operationId: retryProductImageCleanup
+      tags: [products]
+      summary: Retry one failed product image cleanup
+      parameters:
+        - $ref: "#/components/parameters/ProductImageCleanupId"
+      responses:
+        "200":
+          description: Cleanup retry result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductImageCleanupRetryResult"
+        "400":
+          description: Invalid cleanup entry identifier
+        "401":
+          description: Sign in required
+        "403":
+          description: Admin access required
+        "404":
+          description: Cleanup entry is no longer pending
   /vendor-reviewers/{userId}:
     patch:
       operationId: updateVendorReviewer
@@ -185,6 +239,12 @@ paths:
                 $ref: "#/components/schemas/Vendor"
         "404":
           description: Vendor not found
+        "422":
+          description: Storefront fields failed validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorefrontValidationError"
     patch:
       operationId: updateVendor
       tags: [vendors]
@@ -204,6 +264,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Vendor"
+        "404":
+          description: Vendor not found
+  /vendors/{id}/history:
+    get:
+      operationId: listVendorStorefrontHistory
+      tags: [vendors]
+      summary: List the change history for a vendor storefront
+      parameters:
+        - $ref: "#/components/parameters/VendorId"
+      responses:
+        "200":
+          description: Storefront changes, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VendorStorefrontHistoryEntry"
+        "401":
+          description: Sign in required
+        "403":
+          description: Vendor owner or reviewer access required
         "404":
           description: Vendor not found
   /vendors/{id}/status:
@@ -596,6 +678,15 @@ components:
       schema:
         type: string
         minLength: 1
+    ProductImageCleanupId:
+      in: path
+      name: cleanupId
+      required: true
+      schema:
+        type: string
+        minLength: 64
+        maxLength: 64
+        pattern: "^[a-f0-9]{64}$"
     VendorOrderVendorId:
       in: path
       name: vendorId
@@ -699,12 +790,76 @@ components:
           type: string
           enum: [grant, revoke]
         changedAt: { type: string, format: date-time }
+    VendorReviewerAccessHistoryPage:
+      type: object
+      required: [items, page, limit, totalCount, hasNextPage]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/VendorReviewerAccessHistoryEntry"
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1, maximum: 50 }
+        totalCount: { type: integer, minimum: 0 }
+        hasNextPage: { type: boolean }
     VendorReviewerAccessUser:
       type: object
       required: [displayName, email]
       properties:
         displayName: { type: ["string", "null"] }
         email: { type: ["string", "null"], format: email }
+    VendorStorefrontHistoryEntry:
+      type: object
+      required: [id, vendorId, actorUserId, action, changes, changedAt]
+      properties:
+        id: { type: string }
+        vendorId: { type: string }
+        actorUserId: { type: string }
+        action:
+          type: string
+          enum: [edited]
+        changes:
+          type: object
+          additionalProperties:
+            type: object
+            required: [from, to]
+            properties:
+              from: {}
+              to: {}
+        changedAt: { type: string, format: date-time }
+    ProductImageCleanupFailure:
+      type: object
+      required: [id, attempts, nextAttemptAt, lastAttemptAt, lastError, createdAt]
+      properties:
+        id:
+          type: string
+          minLength: 64
+          maxLength: 64
+          pattern: "^[a-f0-9]{64}$"
+        attempts: { type: integer, minimum: 1 }
+        nextAttemptAt: { type: string, format: date-time }
+        lastAttemptAt: { type: ["string", "null"], format: date-time }
+        lastError: { type: ["string", "null"], maxLength: 500 }
+        createdAt: { type: string, format: date-time }
+    ProductImageCleanupStatus:
+      type: object
+      required: [pendingCount, oldestRetryAt, oldestRetryAgeSeconds, failures]
+      properties:
+        pendingCount: { type: integer, minimum: 0 }
+        oldestRetryAt: { type: ["string", "null"], format: date-time }
+        oldestRetryAgeSeconds: { type: ["integer", "null"], minimum: 0 }
+        failures:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductImageCleanupFailure"
+    ProductImageCleanupRetryResult:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: string
+          enum: [cleaned, already-resolved, failed]
+        message: { type: string }
     VendorInput:
       type: object
       additionalProperties: false
@@ -972,6 +1127,14 @@ components:
         plan: { type: string, enum: [Starter, Growth, Enterprise] }
         description: { type: string, minLength: 20, maxLength: 1200 }
         logoUrl: { type: ["string", "null"], maxLength: 1000 }
+    StorefrontValidationError:
+      type: object
+      required: [error, fieldErrors]
+      properties:
+        error: { type: string }
+        fieldErrors:
+          type: object
+          additionalProperties: { type: string }
     VendorStatusUpdate:
       type: object
       additionalProperties: false

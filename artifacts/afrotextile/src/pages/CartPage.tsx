@@ -1,78 +1,17 @@
 import { FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "@clerk/react";
-import { ArrowRight, CheckCircle2, Loader2, Minus, Plus, X } from "lucide-react";
-import { useCreateOrder, type Order } from "@workspace/api-client-react";
+import { Link } from "react-router-dom";
+import { ArrowRight, Loader2, Minus, Plus, ShieldCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { useToast } from "@/hooks/use-toast";
-
-type ShippingForm = {
-  name: string;
-  addressLine1: string;
-  addressLine2: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  country: string;
-};
-
-const emptyShipping: ShippingForm = {
-  name: "",
-  addressLine1: "",
-  addressLine2: "",
-  city: "",
-  state: "",
-  postalCode: "",
-  country: "",
-};
+import { createShopifyCart, formatMoney } from "@/lib/shopify-commerce";
+import { Input } from "@/components/ui/input";
 
 const CartPage = () => {
-  const { items, updateQuantity, removeItem, totalPrice, clearCart } = useCart();
-  const { isSignedIn } = useAuth();
-  const navigate = useNavigate();
+  const { items, updateQuantity, removeItem, totalPrice } = useCart();
   const { toast } = useToast();
-  const [shipping, setShipping] = useState<ShippingForm>(emptyShipping);
-  const [order, setOrder] = useState<Order | null>(null);
-  const createOrder = useCreateOrder({
-    mutation: {
-      onSuccess: (created) => {
-        clearCart();
-        setOrder(created);
-        toast({ title: "Order placed", description: `Order #${created.id.slice(0, 8)} is now being prepared.` });
-      },
-      onError: (error) => {
-        toast({
-          title: "Checkout could not be completed",
-          description: error instanceof Error ? error.message : "Please review your cart and try again.",
-          variant: "destructive",
-        });
-      },
-    },
-  });
-
-  if (order) {
-    return (
-      <div className="min-h-screen px-4 pb-16 pt-28">
-        <div className="mx-auto max-w-2xl rounded-sm border border-primary/30 bg-card p-8 text-center md:p-12">
-          <CheckCircle2 className="mx-auto h-12 w-12 text-primary" />
-          <p className="mt-6 text-xs uppercase tracking-[0.3em] text-primary">Order confirmed</p>
-          <h1 className="mt-3 font-serif text-4xl font-bold">Thank you for your order.</h1>
-          <p className="mt-4 text-muted-foreground">
-            Your order <span className="font-medium text-foreground">#{order.id.slice(0, 8)}</span> has been sent to the makers. You can follow each item as it moves through fulfillment.
-          </p>
-          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <Button asChild variant="hero">
-              <Link to="/orders">Track your order</Link>
-            </Button>
-            <Button asChild variant="heroOutline">
-              <Link to="/shop">Continue shopping</Link>
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const [discountCode, setDiscountCode] = useState("");
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   if (items.length === 0) {
     return (
@@ -88,34 +27,36 @@ const CartPage = () => {
     );
   }
 
-  const shippingCost = totalPrice >= 200 ? 0 : 15;
-  const updateShipping = (field: keyof ShippingForm, value: string) =>
-    setShipping((current) => ({ ...current, [field]: value }));
-
-  const submitOrder = (event: FormEvent<HTMLFormElement>) => {
+  const submitOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!isSignedIn) {
-      navigate("/sign-in", { state: { returnTo: "/cart" } });
-      return;
-    }
-    createOrder.mutate({
-      data: {
-        items: items.map((item) => ({
-          productId: item.product.id,
+    setIsCheckingOut(true);
+    try {
+      const cart = await createShopifyCart({
+        lines: items.map((item) => ({
+          merchandiseId: item.merchandiseId,
           quantity: item.quantity,
-          size: item.size,
         })),
-        shippingAddress: {
-          name: shipping.name.trim(),
-          addressLine1: shipping.addressLine1.trim(),
-          addressLine2: shipping.addressLine2.trim() || null,
-          city: shipping.city.trim(),
-          state: shipping.state.trim() || null,
-          postalCode: shipping.postalCode.trim(),
-          country: shipping.country.trim(),
-        },
-      },
-    });
+        ...(discountCode.trim() ? { discountCodes: [discountCode.trim()] } : {}),
+      });
+      const rejectedCode = cart.discountCodes.find((code) => !code.applicable);
+      if (rejectedCode) {
+        toast({
+          title: "Discount code is not applicable",
+          description: `${rejectedCode.code} cannot be used with this cart.`,
+          variant: "destructive",
+        });
+        setIsCheckingOut(false);
+        return;
+      }
+      window.location.assign(cart.checkoutUrl);
+    } catch (error) {
+      toast({
+        title: "Shopify checkout could not be started",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+      setIsCheckingOut(false);
+    }
   };
 
   return (
@@ -163,26 +104,25 @@ const CartPage = () => {
 
             <form onSubmit={submitOrder} className="space-y-6 rounded-sm border border-border bg-card p-6 md:p-8">
               <div>
-                <p className="text-xs uppercase tracking-[0.25em] text-primary">Delivery details</p>
-                <h2 className="mt-2 font-serif text-2xl font-bold">Where should we send it?</h2>
-                <p className="mt-2 text-sm text-muted-foreground">Your address is shared with the vendors fulfilling this order.</p>
+                <p className="text-xs uppercase tracking-[0.25em] text-primary">Secure checkout</p>
+                <h2 className="mt-2 font-serif text-2xl font-bold">Continue with Shopify</h2>
+                <p className="mt-2 text-sm text-muted-foreground">Shipping, taxes, payment, and order confirmation are completed securely on Shopify.</p>
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <ShippingInput label="Full name" value={shipping.name} onChange={(value) => updateShipping("name", value)} required />
-                <ShippingInput label="Country" value={shipping.country} onChange={(value) => updateShipping("country", value)} required />
-                <ShippingInput label="Address" value={shipping.addressLine1} onChange={(value) => updateShipping("addressLine1", value)} required className="md:col-span-2" />
-                <ShippingInput label="Apartment, suite (optional)" value={shipping.addressLine2} onChange={(value) => updateShipping("addressLine2", value)} className="md:col-span-2" />
-                <ShippingInput label="City" value={shipping.city} onChange={(value) => updateShipping("city", value)} required />
-                <ShippingInput label="State / region (optional)" value={shipping.state} onChange={(value) => updateShipping("state", value)} />
-                <ShippingInput label="Postal code" value={shipping.postalCode} onChange={(value) => updateShipping("postalCode", value)} required />
+              <label className="block text-sm text-foreground">
+                Discount code
+                <Input
+                  value={discountCode}
+                  onChange={(event) => setDiscountCode(event.target.value)}
+                  placeholder="Optional"
+                  className="mt-2 bg-background"
+                />
+              </label>
+              <div className="flex items-start gap-3 border border-primary/25 bg-primary/5 p-4 text-sm text-muted-foreground">
+                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <p>Shopify calculates live shipping and taxes and processes your payment. Afrotextile never handles your card details.</p>
               </div>
-              {!isSignedIn && (
-                <p className="border border-primary/30 bg-primary/5 p-3 text-sm text-muted-foreground">
-                  Sign in is required to place an order and keep your fulfillment updates available across visits.
-                </p>
-              )}
-              <Button type="submit" variant="hero" size="lg" className="w-full" disabled={createOrder.isPending}>
-                {createOrder.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Placing order…</> : <>Place order <ArrowRight className="ml-2 h-4 w-4" /></>}
+              <Button type="submit" variant="hero" size="lg" className="w-full" disabled={isCheckingOut}>
+                {isCheckingOut ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Opening Shopify…</> : <>Checkout securely <ArrowRight className="ml-2 h-4 w-4" /></>}
               </Button>
             </form>
           </div>
@@ -190,40 +130,15 @@ const CartPage = () => {
           <div className="h-fit space-y-6 rounded-sm border border-border bg-card p-6">
             <h2 className="font-serif text-xl font-bold text-foreground">Order Summary</h2>
             <div className="space-y-3 text-sm">
-              <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>${totalPrice.toFixed(2)}</span></div>
-              <div className="flex justify-between text-muted-foreground"><span>Shipping</span><span>{shippingCost === 0 ? "Free" : `$${shippingCost.toFixed(2)}`}</span></div>
-              <div className="flex justify-between border-t border-border pt-3 font-semibold text-foreground"><span>Total</span><span className="text-primary">${(totalPrice + shippingCost).toFixed(2)}</span></div>
+              <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>{formatMoney(totalPrice, items[0]?.product.currencyCode)}</span></div>
+              <div className="flex justify-between border-t border-border pt-3 font-semibold text-foreground"><span>Estimated total</span><span className="text-primary">{formatMoney(totalPrice, items[0]?.product.currencyCode)}</span></div>
             </div>
-            <p className="text-xs leading-5 text-muted-foreground">Free shipping is applied automatically on orders over $200.</p>
+            <p className="text-xs leading-5 text-muted-foreground">Shipping, tax, and eligible discounts are finalized by Shopify at checkout.</p>
           </div>
         </div>
       </div>
     </div>
   );
 };
-
-const ShippingInput = ({
-  label,
-  value,
-  onChange,
-  required = false,
-  className = "",
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  required?: boolean;
-  className?: string;
-}) => (
-  <label className={`block text-sm text-foreground ${className}`}>
-    {label}
-    <input
-      required={required}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className="mt-2 h-11 w-full border border-input bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
-    />
-  </label>
-);
 
 export default CartPage;

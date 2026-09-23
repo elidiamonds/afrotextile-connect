@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, asc, desc, eq, gt, gte, ilike, lte, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, ilike, lte, or, sql } from "drizzle-orm";
+import { createHash } from "node:crypto";
 import { clerkClient, getAuth } from "@clerk/express";
 import {
   db,
@@ -11,6 +12,9 @@ import {
 import {
   CreateProductBody,
   CreateProductResponse,
+  GetProductImageCleanupStatusResponse,
+  RetryProductImageCleanupParams,
+  RetryProductImageCleanupResponse,
   GetVendorParams,
   GetProductParams,
   GetProductResponse,
@@ -20,6 +24,7 @@ import {
   ListStorefrontProductsResponse,
   ListVendorProductsParams,
   ListVendorProductsResponse,
+  type ProductUpdate,
   UpdateProductBody,
   UpdateProductParams,
   UpdateProductResponse,
@@ -31,10 +36,14 @@ import { objectStorageService } from "./storage";
 import {
   cleanupUnreferencedProductImage,
   clearPendingProductImageCleanup,
+  getProductImageCleanupStatus,
   isManagedProductImageReference,
   isProductImageReferenced,
+  lockProductImageReference,
   recordProductImageCleanupFailure,
+  retryProductImageCleanup,
 } from "../lib/productImageCleanup";
+import { hasAdministratorAccess } from "../lib/adminAccess";
 
 const router: IRouter = Router();
 
@@ -44,18 +53,75 @@ function authenticatedUserId(req: Request): string | null {
 
 async function isAdmin(userId: string): Promise<boolean> {
   const user = await clerkClient.users.getUser(userId);
-  return user.publicMetadata.role === "admin";
+  return hasAdministratorAccess(user);
 }
 
 async function isVendorReviewer(userId: string): Promise<boolean> {
   const user = await clerkClient.users.getUser(userId);
   return (
-    user.publicMetadata.role === "admin" ||
+    hasAdministratorAccess(user) ||
     user.publicMetadata.role === "vendor_reviewer" ||
     user.publicMetadata.role === "vendor-reviewer" ||
     user.publicMetadata.vendorReviewer === true
   );
 }
+
+router.get("/product-image-cleanup", async (req, res): Promise<void> => {
+  const userId = authenticatedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Sign in required" });
+    return;
+  }
+  if (!(await isAdmin(userId))) {
+    res.status(403).json({ error: "Admin access required" });
+    return;
+  }
+
+  res.json(
+    GetProductImageCleanupStatusResponse.parse(
+      await getProductImageCleanupStatus(),
+    ),
+  );
+});
+
+router.post(
+  "/product-image-cleanup/:cleanupId/retry",
+  async (req, res): Promise<void> => {
+    const userId = authenticatedUserId(req);
+    if (!userId) {
+      res.status(401).json({ error: "Sign in required" });
+      return;
+    }
+    if (!(await isAdmin(userId))) {
+      res.status(403).json({ error: "Admin access required" });
+      return;
+    }
+
+    const params = RetryProductImageCleanupParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+
+    const result = await retryProductImageCleanup(params.data.cleanupId, req.log);
+    if (result === "not-found") {
+      res.status(404).json({ error: "Cleanup entry is no longer pending." });
+      return;
+    }
+
+    res.json(
+      RetryProductImageCleanupResponse.parse({
+        status: result,
+        message:
+          result === "cleaned"
+            ? "Product photo cleanup completed."
+            : result === "already-resolved"
+              ? "Product photo cleanup was already resolved."
+              : "Product photo cleanup failed and remains queued for another retry.",
+      }),
+    );
+  },
+);
 
 export function toApiProduct(product: Product, vendorName: string) {
   return {
@@ -190,6 +256,53 @@ function productHistoryAction(
     return "archived";
   }
   return "edited";
+}
+
+function idempotentProductId(vendorId: string, idempotencyKey: string): string {
+  return createHash("sha256")
+    .update(`${vendorId}:${idempotencyKey}`)
+    .digest("hex");
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  let current: unknown = error;
+  while (typeof current === "object" && current !== null) {
+    if (
+      "code" in current &&
+      (current as { code?: unknown }).code === "23505"
+    ) {
+      return true;
+    }
+    current =
+      "cause" in current
+        ? (current as { cause?: unknown }).cause
+        : undefined;
+  }
+  return false;
+}
+
+function productUpdateMatches(product: Product, update: ProductUpdate): boolean {
+  return (
+    (update.name === undefined || update.name === product.name) &&
+    (update.category === undefined || update.category === product.category) &&
+    (update.price === undefined ||
+      Math.round(update.price * 100) === product.priceCents) &&
+    (update.originalPrice === undefined ||
+      (update.originalPrice === null
+        ? product.originalPriceCents === null
+        : Math.round(update.originalPrice * 100) === product.originalPriceCents)) &&
+    (update.imageUrl === undefined ||
+      (update.imageUrl || null) === product.imageUrl) &&
+    (update.sizes === undefined ||
+      JSON.stringify(update.sizes) === JSON.stringify(product.sizes)) &&
+    (update.fabricType === undefined ||
+      update.fabricType === product.fabricType) &&
+    (update.description === undefined ||
+      update.description === product.description) &&
+    (update.inventory === undefined ||
+      update.inventory === product.inventory) &&
+    (update.status === undefined || update.status === product.status)
+  );
 }
 
 router.get("/products", async (req, res): Promise<void> => {
@@ -414,37 +527,47 @@ router.delete(
       return;
     }
 
-    if (await isProductImageReferenced(objectPath)) {
-      res.status(409).json({
-        deleted: false,
-        reason: "Product image is still referenced by a product.",
+    let deleted = false;
+    try {
+      deleted = await db.transaction(async (tx) => {
+        await lockProductImageReference(objectPath, tx);
+        if (await isProductImageReferenced(objectPath, tx)) {
+          return false;
+        }
+
+        await objectStorageService.deleteObjectEntity(objectPath);
+        try {
+          await clearPendingProductImageCleanup(objectPath, tx);
+        } catch (error) {
+          req.log.warn(
+            { err: error, imageReference: objectPath },
+            "Could not clear pending product image cleanup after deletion",
+          );
+        }
+        return true;
       });
+      if (!deleted) {
+        res.status(409).json({
+          deleted: false,
+          reason: "Product image is still referenced by a product.",
+        });
+        return;
+      }
+    } catch (error) {
+      try {
+        await recordProductImageCleanupFailure(objectPath, error);
+      } catch (recordError) {
+        req.log.error(
+          { err: recordError, imageReference: objectPath },
+          "Could not record product image cleanup retry",
+        );
+      }
+      req.log.error({ err: error, objectPath }, "Error deleting product image");
+      res.status(500).json({ error: "Could not delete product image." });
       return;
     }
 
-    try {
-      await objectStorageService.deleteObjectEntity(objectPath);
-    try {
-      await clearPendingProductImageCleanup(objectPath);
-    } catch (error) {
-      req.log.warn(
-        { err: error, imageReference: objectPath },
-        "Could not clear pending product image cleanup after deletion",
-      );
-    }
-      res.status(204).end();
-    } catch (error) {
-    try {
-      await recordProductImageCleanupFailure(objectPath, error);
-    } catch (recordError) {
-      req.log.error(
-        { err: recordError, imageReference: objectPath },
-        "Could not record product image cleanup retry",
-      );
-    }
-      req.log.error({ err: error, objectPath }, "Error deleting product image");
-      res.status(500).json({ error: "Could not delete product image." });
-    }
+    res.status(204).end();
   },
 );
 
@@ -589,12 +712,19 @@ router.post("/vendors/:id/products", async (req, res): Promise<void> => {
     return;
   }
 
+  const idempotencyKey = req.get("Idempotency-Key")?.trim();
+  const requestedProductId = idempotencyKey
+    ? idempotentProductId(vendor.id, idempotencyKey)
+    : undefined;
   let product: Product;
+  let replayed = false;
   try {
     product = await db.transaction(async (tx) => {
+      await lockProductImageReference(body.data.imageUrl, tx);
       const [created] = await tx
         .insert(productsTable)
         .values({
+          ...(requestedProductId ? { id: requestedProductId } : {}),
           vendorId: vendor.id,
           name: body.data.name,
           category: body.data.category,
@@ -620,14 +750,24 @@ router.post("/vendors/:id/products", async (req, res): Promise<void> => {
       return created;
     });
   } catch (error) {
-    await cleanupUnreferencedProductImage(
-      body.data.imageUrl,
-      req.log,
-      "product create failed",
-    );
-    req.log.error({ err: error }, "Error creating product");
-    res.status(500).json({ error: "Could not save product." });
-    return;
+    if (requestedProductId && isUniqueViolation(error)) {
+      const existing = await getProductWithVendor(requestedProductId);
+      if (existing?.product.vendorId === vendor.id) {
+        product = existing.product;
+        replayed = true;
+      } else {
+        req.log.error(
+          { err: error, vendorId: vendor.id },
+          "Idempotency key collided with an existing product",
+        );
+        res.status(409).json({ error: "This save request cannot be replayed." });
+        return;
+      }
+    } else {
+      req.log.error({ err: error }, "Error creating product");
+      res.status(500).json({ error: "Could not save product." });
+      return;
+    }
   }
 
   try {
@@ -640,7 +780,7 @@ router.post("/vendors/:id/products", async (req, res): Promise<void> => {
   }
 
   res
-    .status(201)
+    .status(replayed ? 200 : 201)
     .json(CreateProductResponse.parse(toApiProduct(product, vendor.businessName)));
 });
 
@@ -656,6 +796,17 @@ router.patch("/products/:id", async (req, res): Promise<void> => {
   if (!params.success || !body.success || Object.keys(body.data).length === 0) {
     res.status(400).json({ error: "Provide at least one valid product field." });
     return;
+  }
+
+  const ifMatch = req.get("If-Match")?.trim();
+  let expectedUpdatedAt: Date | undefined;
+  if (ifMatch) {
+    const parsedIfMatch = new Date(ifMatch);
+    if (Number.isNaN(parsedIfMatch.getTime())) {
+      res.status(400).json({ error: "If-Match must be a valid product timestamp." });
+      return;
+    }
+    expectedUpdatedAt = parsedIfMatch;
   }
 
   const row = await getProductWithVendor(params.data.id);
@@ -679,9 +830,11 @@ router.patch("/products/:id", async (req, res): Promise<void> => {
 
   const update = body.data;
   let product: Product;
+  let replayed = false;
   try {
-    product = await db.transaction(async (tx) => {
-      const [updated] = await tx
+    const updated = await db.transaction(async (tx) => {
+      await lockProductImageReference(update.imageUrl, tx);
+      const [updatedProduct] = await tx
         .update(productsTable)
         .set({
           ...(update.name === undefined ? {} : { name: update.name }),
@@ -712,26 +865,49 @@ router.patch("/products/:id", async (req, res): Promise<void> => {
             : { inventory: update.inventory }),
           ...(update.status === undefined ? {} : { status: update.status }),
         })
-        .where(eq(productsTable.id, params.data.id))
+        .where(
+          expectedUpdatedAt
+            ? and(
+                eq(productsTable.id, params.data.id),
+                sql`date_trunc('milliseconds', ${productsTable.updatedAt}) = ${expectedUpdatedAt}`,
+              )
+            : eq(productsTable.id, params.data.id),
+        )
         .returning();
+
+      if (!updatedProduct) return null;
+
       await tx.insert(productHistoryTable).values({
-        productId: updated.id,
+        productId: updatedProduct.id,
         actorUserId,
-        action: productHistoryAction(row.product, updated),
+        action: productHistoryAction(row.product, updatedProduct),
         changes: buildProductHistoryChanges(
           row.product,
-          updated,
+          updatedProduct,
           Object.keys(update),
         ),
       });
-      return updated;
+      return updatedProduct;
     });
+
+    if (updated) {
+      product = updated;
+    } else {
+      const latest = await getProductWithVendor(params.data.id);
+      if (!latest) {
+        res.status(404).json({ error: "Product not found" });
+        return;
+      }
+      if (!productUpdateMatches(latest.product, update)) {
+        res.status(409).json({
+          error: "Product changed since it was loaded. Refresh before saving.",
+        });
+        return;
+      }
+      product = latest.product;
+      replayed = true;
+    }
   } catch (error) {
-    await cleanupUnreferencedProductImage(
-      update.imageUrl,
-      req.log,
-      "product update failed",
-    );
     req.log.error({ err: error }, "Error updating product");
     res.status(500).json({ error: "Could not save product." });
     return;
@@ -746,7 +922,7 @@ router.patch("/products/:id", async (req, res): Promise<void> => {
     );
   }
 
-  if (update.imageUrl !== undefined && update.imageUrl !== row.product.imageUrl) {
+  if (!replayed && update.imageUrl !== undefined && update.imageUrl !== row.product.imageUrl) {
     await cleanupUnreferencedProductImage(
       row.product.imageUrl,
       req.log,

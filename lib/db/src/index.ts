@@ -27,6 +27,14 @@ export const pool = new Pool({
 });
 export const db = drizzle(pool, { schema });
 
+/**
+ * Preflight guard for database-backed integration test bootstraps.
+ *
+ * Set DB_SCHEMA before importing this package, create only the generated
+ * run-scoped schema, then call this function before applying the canonical
+ * schema or writing fixtures. This makes a missing or misconfigured
+ * search_path fail closed instead of allowing writes to public.
+ */
 export async function assertDatabaseSchema(expectedSchema: string) {
   const normalizedExpectedSchema = expectedSchema.trim();
 

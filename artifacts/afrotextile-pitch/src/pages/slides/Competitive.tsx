@@ -64,9 +64,9 @@ export default function Competitive() {
           >
             <div className="flex items-center gap-[1.2vw]" style={{ flexShrink: 0, marginBottom: "1.5vh" }}>
               <img
-                src={`${import.meta.env.BASE_URL}brand/threaded-a-dark.svg`}
+                src={`${import.meta.env.BASE_URL}brand/official-icon.png`}
                 crossOrigin="anonymous"
-                alt="Afrotextile Threaded A mark"
+                alt="Afrotextile official icon"
                 className="w-[3.2vw] h-[3.2vw] object-contain shrink-0"
               />
               <p

@@ -111,7 +111,10 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host}`);
   let pathname = url.pathname;
 
-  if (basePath && pathname.startsWith(basePath)) {
+  if (
+    basePath &&
+    (pathname === basePath || pathname.startsWith(`${basePath}/`))
+  ) {
     pathname = pathname.slice(basePath.length) || "/";
   }
 

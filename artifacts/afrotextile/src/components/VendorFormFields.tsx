@@ -21,21 +21,39 @@ export type VendorForm = {
   logoUrl: string;
 };
 
+export type VendorFieldErrors = Partial<Record<keyof VendorForm, string>>;
+
 type Props = {
   form: VendorForm;
   setForm: (form: VendorForm) => void;
   includeEmail?: boolean;
+  fieldErrors?: VendorFieldErrors;
+  onFieldChange?: (field: keyof VendorForm) => void;
 };
 
 const fieldClass = "bg-muted border-border";
+
+function FieldError({ id, message }: { id: string; message?: string }) {
+  if (!message) return null;
+
+  return (
+    <p id={id} role="alert" className="text-sm text-destructive">
+      {message}
+    </p>
+  );
+}
 
 export default function VendorFormFields({
   form,
   setForm,
   includeEmail = true,
+  fieldErrors = {},
+  onFieldChange,
 }: Props) {
-  const update = (key: keyof VendorForm, value: string) =>
+  const update = (key: keyof VendorForm, value: string) => {
     setForm({ ...form, [key]: value });
+    onFieldChange?.(key);
+  };
 
   return (
     <div className="grid gap-5 md:grid-cols-2">
@@ -48,7 +66,17 @@ export default function VendorFormFields({
           minLength={2}
           maxLength={120}
           required
-          className={fieldClass}
+          aria-invalid={Boolean(fieldErrors.businessName)}
+          aria-describedby={
+            fieldErrors.businessName ? "businessName-error" : undefined
+          }
+          className={`${fieldClass} ${
+            fieldErrors.businessName ? "border-destructive" : ""
+          }`}
+        />
+        <FieldError
+          id="businessName-error"
+          message={fieldErrors.businessName}
         />
       </div>
       <div className="space-y-2">
@@ -60,8 +88,15 @@ export default function VendorFormFields({
           minLength={2}
           maxLength={120}
           required
-          className={fieldClass}
+          aria-invalid={Boolean(fieldErrors.contactName)}
+          aria-describedby={
+            fieldErrors.contactName ? "contactName-error" : undefined
+          }
+          className={`${fieldClass} ${
+            fieldErrors.contactName ? "border-destructive" : ""
+          }`}
         />
+        <FieldError id="contactName-error" message={fieldErrors.contactName} />
       </div>
       {includeEmail && (
         <div className="space-y-2">
@@ -73,8 +108,13 @@ export default function VendorFormFields({
             onChange={(e) => update("email", e.target.value)}
             maxLength={255}
             required
-            className={fieldClass}
+            aria-invalid={Boolean(fieldErrors.email)}
+            aria-describedby={fieldErrors.email ? "email-error" : undefined}
+            className={`${fieldClass} ${
+              fieldErrors.email ? "border-destructive" : ""
+            }`}
           />
+          <FieldError id="email-error" message={fieldErrors.email} />
         </div>
       )}
       <div className="space-y-2">
@@ -86,8 +126,13 @@ export default function VendorFormFields({
           minLength={7}
           maxLength={30}
           required
-          className={fieldClass}
+          aria-invalid={Boolean(fieldErrors.phone)}
+          aria-describedby={fieldErrors.phone ? "phone-error" : undefined}
+          className={`${fieldClass} ${
+            fieldErrors.phone ? "border-destructive" : ""
+          }`}
         />
+        <FieldError id="phone-error" message={fieldErrors.phone} />
       </div>
       <div className="space-y-2">
         <Label htmlFor="location">City and country</Label>
@@ -98,16 +143,30 @@ export default function VendorFormFields({
           minLength={2}
           maxLength={160}
           required
-          className={fieldClass}
+          aria-invalid={Boolean(fieldErrors.location)}
+          aria-describedby={fieldErrors.location ? "location-error" : undefined}
+          className={`${fieldClass} ${
+            fieldErrors.location ? "border-destructive" : ""
+          }`}
         />
+        <FieldError id="location-error" message={fieldErrors.location} />
       </div>
       <div className="space-y-2">
-        <Label>Primary category</Label>
+        <Label htmlFor="category">Primary category</Label>
         <Select
           value={form.category}
           onValueChange={(value) => update("category", value)}
         >
-          <SelectTrigger className={fieldClass}>
+          <SelectTrigger
+            id="category"
+            aria-invalid={Boolean(fieldErrors.category)}
+            aria-describedby={
+              fieldErrors.category ? "category-error" : undefined
+            }
+            className={`${fieldClass} ${
+              fieldErrors.category ? "border-destructive" : ""
+            }`}
+          >
             <SelectValue placeholder="Choose a category">
               {form.category || undefined}
             </SelectValue>
@@ -127,14 +186,22 @@ export default function VendorFormFields({
             ))}
           </SelectContent>
         </Select>
+        <FieldError id="category-error" message={fieldErrors.category} />
       </div>
       <div className="space-y-2">
-        <Label>Plan</Label>
+        <Label htmlFor="plan">Plan</Label>
         <Select
           value={form.plan}
           onValueChange={(value: VendorForm["plan"]) => update("plan", value)}
         >
-          <SelectTrigger className={fieldClass}>
+          <SelectTrigger
+            id="plan"
+            aria-invalid={Boolean(fieldErrors.plan)}
+            aria-describedby={fieldErrors.plan ? "plan-error" : undefined}
+            className={`${fieldClass} ${
+              fieldErrors.plan ? "border-destructive" : ""
+            }`}
+          >
             <SelectValue>{form.plan}</SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -145,6 +212,7 @@ export default function VendorFormFields({
             ))}
           </SelectContent>
         </Select>
+        <FieldError id="plan-error" message={fieldErrors.plan} />
       </div>
       <div className="space-y-2">
         <Label htmlFor="logoUrl">
@@ -158,8 +226,13 @@ export default function VendorFormFields({
           onChange={(e) => update("logoUrl", e.target.value)}
           maxLength={1000}
           placeholder="https://…"
-          className={fieldClass}
+          aria-invalid={Boolean(fieldErrors.logoUrl)}
+          aria-describedby={fieldErrors.logoUrl ? "logoUrl-error" : undefined}
+          className={`${fieldClass} ${
+            fieldErrors.logoUrl ? "border-destructive" : ""
+          }`}
         />
+        <FieldError id="logoUrl-error" message={fieldErrors.logoUrl} />
       </div>
       <div className="space-y-2 md:col-span-2">
         <Label htmlFor="description">Brand story</Label>
@@ -171,9 +244,16 @@ export default function VendorFormFields({
           maxLength={1200}
           rows={5}
           required
-          className={fieldClass}
+          aria-invalid={Boolean(fieldErrors.description)}
+          aria-describedby={
+            fieldErrors.description ? "description-error" : undefined
+          }
+          className={`${fieldClass} ${
+            fieldErrors.description ? "border-destructive" : ""
+          }`}
           placeholder="Tell buyers about your craft, materials, and heritage."
         />
+        <FieldError id="description-error" message={fieldErrors.description} />
         <p className="text-xs text-muted-foreground">
           {form.description.length}/1200 characters
         </p>

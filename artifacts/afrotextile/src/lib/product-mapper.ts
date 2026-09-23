@@ -4,6 +4,7 @@ import type { Product } from "@/types";
 export function mapApiProduct(product: ApiProduct): Product {
   return {
     id: product.id,
+    commerceSource: "marketplace",
     name: product.name,
     price: product.price,
     ...(product.originalPrice == null

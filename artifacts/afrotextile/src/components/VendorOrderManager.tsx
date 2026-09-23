@@ -61,16 +61,28 @@ export default function VendorOrderManager({
   }
   if (ordersQuery.isError) {
     return (
-      <section className="rounded-sm border border-destructive/40 bg-destructive/10 p-6">
+      <section
+        className="rounded-sm border border-destructive/40 bg-destructive/10 p-6"
+        data-testid="vendor-orders-section"
+      >
         <h2 className="font-serif text-xl font-bold">Orders could not be loaded</h2>
         <p className="mt-2 text-sm text-muted-foreground">Please refresh and try again.</p>
+        <Button
+          type="button"
+          variant="outline"
+          className="mt-4"
+          onClick={() => ordersQuery.refetch()}
+          disabled={ordersQuery.isFetching}
+        >
+          {ordersQuery.isFetching ? "Retrying orders…" : "Retry orders"}
+        </Button>
       </section>
     );
   }
 
   const orders = ordersQuery.data ?? [];
   return (
-    <section className="space-y-5">
+    <section className="space-y-5" data-testid="vendor-orders-section">
       <div>
         <p className="text-xs uppercase tracking-[0.3em] text-primary">Fulfillment</p>
         <h2 className="mt-2 font-serif text-2xl font-bold">Orders for your products</h2>

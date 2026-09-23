@@ -3,6 +3,10 @@ const path = require("path");
 const { spawn } = require("child_process");
 const { Readable } = require("stream");
 const { pipeline } = require("stream/promises");
+const {
+  checkServedMobileLaunchAssets,
+  copyMobileLaunchAssets,
+} = require("./launch-assets.cjs");
 
 let metroProcess = null;
 
@@ -548,13 +552,19 @@ async function main() {
   }
 
   const assetCount = await downloadAssets(assets, timestamp);
+  const launchAssetCount = copyMobileLaunchAssets(projectRoot, timestamp);
 
   if (assetCount > 0) {
     updateBundleUrls(timestamp, baseUrl);
   }
 
-  console.log("Updating manifests and creating landing page...");
+  console.log(
+    `Updating manifests and creating landing page (${launchAssetCount} launch assets verified)...`,
+  );
   updateManifests(manifests, timestamp, baseUrl, assetsByHash);
+  await checkServedMobileLaunchAssets(projectRoot, timestamp, {
+    basePath: process.env.BASE_PATH || "/mobile/",
+  });
 
   console.log("Build complete! Deploy to:", baseUrl);
 

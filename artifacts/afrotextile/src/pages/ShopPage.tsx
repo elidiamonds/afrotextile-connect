@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, MapPin, RotateCcw, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, RotateCcw, Search, WifiOff } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import ProductCard from "@/components/ProductCard";
-import { products, categories, fabricTypes } from "@/data/mock";
+import { categories, fabricTypes } from "@/data/mock";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useListProducts } from "@workspace/api-client-react";
-import { mapApiProduct } from "@/lib/product-mapper";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { getShopifyProducts, mapShopifyProduct } from "@/lib/shopify-commerce";
 
 type SortOption = "latest" | "popular" | "price-asc" | "price-desc";
 type StockOption = "all" | "in-stock" | "sold-out";
 const pageSize = 24;
+const catalogRefreshInterval = 30_000;
 
 const ShopPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -30,6 +31,7 @@ const ShopPage = () => {
     return value === "true" ? "in-stock" : value === "false" ? "sold-out" : "all";
   });
   const [page, setPage] = useState(() => Math.max(1, Number(searchParams.get("page")) || 1));
+  const [pageCursors, setPageCursors] = useState<Record<number, string | undefined>>({});
   const hasMounted = useRef(false);
 
   const requestParams = useMemo(() => {
@@ -53,11 +55,30 @@ const ShopPage = () => {
     };
   }, [category, fabric, location, maxPrice, minPrice, page, query, sort, stock]);
 
-  const { data: apiProducts, isLoading, isError } = useListProducts(requestParams);
-  const marketplaceProducts =
-    apiProducts === undefined
-      ? products
-      : apiProducts.map(mapApiProduct);
+  const {
+    data: shopifyProducts,
+    isLoading,
+    isFetching,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: ["shopify-products", requestParams],
+    queryFn: () =>
+      getShopifyProducts({
+        q: requestParams.q,
+        productType: requestParams.category,
+        minPrice: requestParams.minPrice,
+        maxPrice: requestParams.maxPrice,
+        available: requestParams.inStock,
+        sort: requestParams.sort,
+        first: pageSize,
+        after: pageCursors[page],
+      }),
+    staleTime: catalogRefreshInterval,
+    refetchInterval: catalogRefreshInterval,
+    refetchIntervalInBackground: false,
+  });
+  const marketplaceProducts = shopifyProducts?.nodes.map(mapShopifyProduct) ?? [];
 
   useEffect(() => {
     const next = new URLSearchParams();
@@ -115,6 +136,7 @@ const ShopPage = () => {
     setStock("all");
     setSort("latest");
     setPage(1);
+    setPageCursors({});
   };
   const hasActiveFilters =
     Boolean(query.trim()) ||
@@ -125,8 +147,8 @@ const ShopPage = () => {
     Boolean(maxPrice.trim()) ||
     stock !== "all";
   const emptyMessage =
-    apiProducts !== undefined && apiProducts.length === 0 && !hasActiveFilters
-      ? "No published products are available yet."
+    shopifyProducts !== undefined && shopifyProducts.nodes.length === 0 && !hasActiveFilters
+      ? "Your Shopify store is connected. Products will appear here after they are active and published to the storefront."
       : "No products match your filters.";
 
   return (
@@ -225,23 +247,47 @@ const ShopPage = () => {
           </div>
         </div>
 
-        <p className="text-sm text-muted-foreground font-sans mb-6">
+        <p className="mb-6 flex min-h-5 items-center gap-2 text-sm text-muted-foreground font-sans" aria-live="polite" data-testid="status-shop-results">
           {isLoading
             ? "Searching marketplace…"
             : isError
-              ? "Showing saved catalog while the marketplace reconnects."
-              : `${filtered.length}${apiProducts?.length === pageSize ? "+" : ""} products`}
+              ? "The marketplace could not be loaded."
+               : `${filtered.length}${shopifyProducts?.pageInfo.hasNextPage ? "+" : ""} products`}
+          {isFetching && !isLoading && (
+            <span className="inline-flex items-center gap-1.5 text-primary">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+              Updating
+            </span>
+          )}
         </p>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {filtered.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        {isError ? (
+          <div className="flex flex-col items-center justify-center border border-dashed border-border px-6 py-20 text-center" data-testid="state-shop-error">
+            <WifiOff className="mb-4 h-8 w-8 text-primary" />
+            <h2 className="font-serif text-2xl font-semibold text-foreground">The marketplace is taking a moment</h2>
+            <p className="mt-2 max-w-md font-sans text-sm text-muted-foreground">
+              We couldn’t load the latest listings. Check your connection and try again.
+            </p>
+            <Button type="button" variant="heroOutline" className="mt-6" onClick={() => refetch()} disabled={isFetching} data-testid="button-retry-shop">
+              <RotateCcw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+              Try again
+            </Button>
+          </div>
+         ) : isLoading && !shopifyProducts ? (
+          <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4" aria-label="Loading products" data-testid="grid-products-loading">
+            {Array.from({ length: 8 }, (_, index) => <ProductSkeleton key={index} />)}
+          </div>
+        ) : (
+          <div className={`grid grid-cols-2 gap-6 transition-opacity duration-300 md:grid-cols-3 lg:grid-cols-4 ${isFetching ? "opacity-65" : "opacity-100"}`}>
+            {filtered.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        )}
 
-        {filtered.length === 0 && (
+        {!isLoading && !isError && filtered.length === 0 && (
           <div className="text-center py-20">
-            <p className="text-muted-foreground font-sans">{emptyMessage}</p>
+            <p className="text-muted-foreground font-sans" data-testid="text-shop-empty">{emptyMessage}</p>
             {hasActiveFilters && (
               <Button type="button" variant="link" onClick={clearFilters} className="mt-2">
                 Clear filters
@@ -250,7 +296,7 @@ const ShopPage = () => {
           </div>
         )}
 
-        {(page > 1 || (apiProducts !== undefined && apiProducts.length === pageSize)) && (
+         {(page > 1 || shopifyProducts?.pageInfo.hasNextPage) && (
           <div className="mt-12 flex items-center justify-center gap-3">
             <Button
               type="button"
@@ -267,8 +313,14 @@ const ShopPage = () => {
               type="button"
               variant="outline"
               size="sm"
-              disabled={isLoading || apiProducts?.length !== pageSize}
-              onClick={() => setPage((current) => current + 1)}
+               disabled={isLoading || !shopifyProducts?.pageInfo.hasNextPage}
+              onClick={() => {
+                const nextCursor = shopifyProducts?.pageInfo.endCursor;
+                if (nextCursor) {
+                  setPageCursors((current) => ({ ...current, [page + 1]: nextCursor }));
+                  setPage((current) => current + 1);
+                }
+              }}
             >
               Next
               <ChevronRight className="h-4 w-4" />
@@ -281,3 +333,12 @@ const ShopPage = () => {
 };
 
 export default ShopPage;
+
+const ProductSkeleton = () => (
+  <div className="space-y-3" aria-hidden="true">
+    <div className="aspect-[4/5] animate-pulse rounded-sm bg-muted" />
+    <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
+    <div className="h-4 w-4/5 animate-pulse rounded bg-muted" />
+    <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
+  </div>
+);

@@ -15,9 +15,11 @@ import nigerianIroBuba from "@/assets/nigerian-iro-buba.jpg";
 import nigerianAsoEbi from "@/assets/nigerian-aso-ebi.jpg";
 import nigerianIsiAgu from "@/assets/nigerian-isi-agu.jpg";
 
+// Demo/editorial content only. Public storefront pages must use the API.
 export const products: Product[] = [
   {
     id: "1",
+    commerceSource: "demo",
     name: "Ankara Co-ord Set",
     price: 285,
     originalPrice: 350,
@@ -32,6 +34,7 @@ export const products: Product[] = [
   },
   {
     id: "2",
+    commerceSource: "demo",
     name: "Kente Maxi Gown",
     price: 420,
     images: [p2],
@@ -45,6 +48,7 @@ export const products: Product[] = [
   },
   {
     id: "3",
+    commerceSource: "demo",
     name: "Mudcloth Bomber Jacket",
     price: 310,
     images: [p3],
@@ -58,6 +62,7 @@ export const products: Product[] = [
   },
   {
     id: "4",
+    commerceSource: "demo",
     name: "Aso-Oke Corset",
     price: 195,
     images: [p4],
@@ -71,6 +76,7 @@ export const products: Product[] = [
   },
   {
     id: "5",
+    commerceSource: "demo",
     name: "Embroidered Kaftan",
     price: 245,
     images: [p5],
@@ -84,6 +90,7 @@ export const products: Product[] = [
   },
   {
     id: "6",
+    commerceSource: "demo",
     name: "Adire Wide-Leg Trousers",
     price: 230,
     images: [p6],
@@ -97,6 +104,7 @@ export const products: Product[] = [
   },
   {
     id: "7",
+    commerceSource: "demo",
     name: "Kitenge Wrap Skirt",
     price: 145,
     images: [p7],
@@ -110,6 +118,7 @@ export const products: Product[] = [
   },
   {
     id: "8",
+    commerceSource: "demo",
     name: "Hand-Woven Tote",
     price: 165,
     images: [p8],
@@ -123,6 +132,7 @@ export const products: Product[] = [
   },
   {
     id: "9",
+    commerceSource: "demo",
     name: "Agbada Atelier Set",
     price: 460,
     images: [nigerianAgbada],
@@ -136,6 +146,7 @@ export const products: Product[] = [
   },
   {
     id: "10",
+    commerceSource: "demo",
     name: "Iro & Buba Set",
     price: 335,
     images: [nigerianIroBuba],
@@ -149,6 +160,7 @@ export const products: Product[] = [
   },
   {
     id: "11",
+    commerceSource: "demo",
     name: "Aso Ebi Lace Ensemble",
     price: 395,
     images: [nigerianAsoEbi],
@@ -162,6 +174,7 @@ export const products: Product[] = [
   },
   {
     id: "12",
+    commerceSource: "demo",
     name: "Isi Agu Tailored Jacket",
     price: 290,
     images: [nigerianIsiAgu],
@@ -177,32 +190,32 @@ export const products: Product[] = [
 
 export const vendors: Vendor[] = [
   {
-    id: "v1", name: "Adunni Couture", logo: v1img,
+    id: "v1", name: "Adunni Couture", logo: v1img, isDemo: true,
     description: "Lagos-based luxury fashion house blending Yoruba textile traditions with contemporary haute couture.",
     location: "Lagos, Nigeria", productCount: 48, rating: 4.8,
   },
   {
-    id: "v2", name: "Nana's Heritage", logo: v3img,
+    id: "v2", name: "Nana's Heritage", logo: v3img, isDemo: true,
     description: "Preserving Ghanaian textile heritage through modern fashion. Specializing in Kente and Adinkra.",
     location: "Accra, Ghana", productCount: 35, rating: 4.9,
   },
   {
-    id: "v3", name: "Bamako Modern", logo: v2img,
+    id: "v3", name: "Bamako Modern", logo: v2img, isDemo: true,
     description: "Reinventing Malian mudcloth for the global streetwear market with bold contemporary designs.",
     location: "Bamako, Mali", productCount: 22, rating: 4.7,
   },
   {
-    id: "v4", name: "Lagos Luxe", logo: v2img,
+    id: "v4", name: "Lagos Luxe", logo: v2img, isDemo: true,
     description: "Premium menswear celebrating West African embroidery and tailoring excellence.",
     location: "Lagos, Nigeria", productCount: 31, rating: 4.5,
   },
   {
-    id: "v5", name: "Zanzibar Threads", logo: v1img,
+    id: "v5", name: "Zanzibar Threads", logo: v1img, isDemo: true,
     description: "East African coastal designs in Kitenge and Khanga, crafted for the modern wardrobe.",
     location: "Stone Town, Zanzibar", productCount: 27, rating: 4.6,
   },
   {
-    id: "v6", name: "Cape Heritage Co.", logo: v3img,
+    id: "v6", name: "Cape Heritage Co.", logo: v3img, isDemo: true,
     description: "South African leather goods and Shweshwe accessories with architectural sensibility.",
     location: "Cape Town, South Africa", productCount: 19, rating: 4.8,
   },

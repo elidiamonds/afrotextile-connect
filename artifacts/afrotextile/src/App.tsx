@@ -19,7 +19,8 @@ import StyleLabPage from "@/pages/StyleLabPage";
 import TrendDeskPage from "@/pages/TrendDeskPage";
 import NotFound from "./pages/NotFound.tsx";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { ClerkProvider, Show, SignIn, SignUp } from "@clerk/react";
+import { useEffect } from "react";
+import { ClerkProvider, Show, SignIn, SignUp, useAuth } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { dark } from "@clerk/themes";
 import VendorDashboardPage from "@/pages/VendorDashboardPage";
@@ -60,58 +61,67 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <Navbar />
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/shop" element={<ShopPage />} />
-                <Route path="/product/:id" element={<ProductPage />} />
-                <Route path="/cart" element={<CartPage />} />
-                <Route path="/orders" element={<OrdersPage />} />
-                <Route path="/about" element={<AboutPage />} />
-                <Route path="/contact" element={<ContactPage />} />
-                <Route path="/store/:id" element={<VendorPage />} />
-                <Route path="/vendor" element={<VendorOnboardingPage />} />
-                <Route path="/vendor/portal" element={<VendorPortalPage />} />
-                <Route
-                  path="/vendor/onboard"
-                  element={<VendorOnboardingPage />}
-                />
-                <Route
-                  path="/vendor/dashboard/:id"
-                  element={
-                    <Protected>
-                      <VendorDashboardPage />
-                    </Protected>
-                  }
-                />
-                <Route
-                  path="/admin/vendors"
-                  element={
-                    <Protected>
-                      <VendorAdminPage />
-                    </Protected>
-                  }
-                />
-                <Route
-                  path="/sign-in/*"
-                  element={<SignInPage />}
-                />
-                <Route
-                  path="/sign-up/*"
-                  element={
-                    <div className="min-h-screen pt-28 flex justify-center">
-                      <SignUp
-                        routing="path"
-                        path="/sign-up"
-                        signInUrl="/sign-in"
-                        forceRedirectUrl="/vendor?apply=true"
-                      />
-                    </div>
-                  }
-                />
-                <Route path="/style-lab" element={<StyleLabPage />} />
-                <Route path="/trend-desk" element={<TrendDeskPage />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+              <ScrollToTop />
+              <main className="min-h-screen">
+                <PageTransition>
+                  <Routes>
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/shop" element={<ShopPage />} />
+                    <Route path="/product/:id" element={<ProductPage />} />
+                    <Route path="/cart" element={<CartPage />} />
+                    <Route path="/orders" element={<OrdersPage />} />
+                    <Route path="/about" element={<AboutPage />} />
+                    <Route path="/contact" element={<ContactPage />} />
+                    <Route path="/store/:id" element={<VendorPage />} />
+                    <Route path="/vendor" element={<VendorOnboardingPage />} />
+                    <Route path="/vendor/portal" element={<VendorPortalPage />} />
+                    <Route
+                      path="/vendor/onboard"
+                      element={<VendorOnboardingPage />}
+                    />
+                    <Route
+                      path="/vendor/dashboard/:id"
+                      element={
+                        <Protected>
+                          <VendorDashboardPage />
+                        </Protected>
+                      }
+                    />
+                    <Route
+                      path="/admin/vendors"
+                      element={
+                        <Protected renderWhileLoading>
+                          <VendorAdminPage />
+                        </Protected>
+                      }
+                    />
+                    <Route
+                      path="/admin"
+                      element={<Navigate to="/admin/vendors" replace />}
+                    />
+                    <Route
+                      path="/sign-in/*"
+                      element={<SignInPage />}
+                    />
+                    <Route
+                      path="/sign-up/*"
+                      element={
+                        <div className="flex min-h-screen justify-center pt-28">
+                          <SignUp
+                            routing="path"
+                            path="/sign-up"
+                            signInUrl="/sign-in"
+                            forceRedirectUrl="/vendor?apply=true"
+                          />
+                        </div>
+                      }
+                    />
+                    <Route path="/style-lab" element={<StyleLabPage />} />
+                    <Route path="/trend-desk" element={<TrendDeskPage />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </PageTransition>
+              </main>
               <Footer />
             </BrowserRouter>
           </WishlistProvider>
@@ -125,14 +135,48 @@ export default App;
 
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 
-const Protected = ({ children }: { children: React.ReactNode }) => (
-  <>
-    <Show when="signed-in">{children}</Show>
-    <Show when="signed-out">
-      <Navigate to="/sign-in" replace />
-    </Show>
-  </>
-);
+const ScrollToTop = () => {
+  const { pathname, search } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [pathname, search]);
+
+  return null;
+};
+
+const PageTransition = ({ children }: { children: React.ReactNode }) => {
+  const { pathname } = useLocation();
+
+  return (
+    <div key={pathname} className="page-transition">
+      {children}
+    </div>
+  );
+};
+
+const Protected = ({
+  children,
+  renderWhileLoading = false,
+}: {
+  children: React.ReactNode;
+  renderWhileLoading?: boolean;
+}) => {
+  const { isLoaded } = useAuth();
+
+  if (!isLoaded && renderWhileLoading) {
+    return <>{children}</>;
+  }
+
+  return (
+    <>
+      <Show when="signed-in">{children}</Show>
+      <Show when="signed-out">
+        <Navigate to="/sign-in" replace />
+      </Show>
+    </>
+  );
+};
 
 const SignInPage = () => {
   const location = useLocation();

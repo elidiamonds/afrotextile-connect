@@ -7,10 +7,17 @@ A global African fashion marketplace where users can discover and shop bold Afri
 - `pnpm --filter @workspace/afrotextile run dev` — run the frontend (auto-assigned port)
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
 - `pnpm run typecheck` — full typecheck across all packages
+- `pnpm run typecheck:afrotextile` — rebuild shared declarations, then typecheck the web app
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string
+
+Shared TypeScript packages must be rebuilt before a focused artifact check. The
+workspace `typecheck:libs` step emits the generated API client declarations
+first, and the API codegen command runs that step automatically after
+regenerating the OpenAPI client. Use `typecheck:afrotextile` instead of calling
+the web package's compiler directly when validating the storefront.
 
 ## Stack
 

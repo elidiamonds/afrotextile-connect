@@ -5,13 +5,20 @@ import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import { dropReviewedSchemas } from "../lib/legacySchemaCleanup";
 
 vi.mock("@clerk/express", () => {
   const metadata = new Map<string, Record<string, unknown>>();
   const buildUser = (userId: string) => {
-    const publicMetadata = metadata.get(userId) ?? {
-      role: userId === "task-13-admin" ? "admin" : undefined,
-    };
+    const defaultMetadata =
+      userId === "task-13-admin" ||
+      userId === "task-133-admin-a" ||
+      userId === "task-133-admin-b"
+        ? { role: "admin" }
+        : userId === "task-136-vendor-reviewer"
+          ? { vendorReviewer: true }
+          : {};
+    const publicMetadata = metadata.get(userId) ?? defaultMetadata;
     return {
       id: userId,
       emailAddresses: [
@@ -46,6 +53,9 @@ vi.mock("@clerk/express", () => {
             "task-13-admin",
             "task-21-target",
             "task-22-search-match",
+            ...(params.query?.includes("task-133-concurrent-target")
+              ? ["task-133-concurrent-target"]
+              : []),
           ].map(buildUser);
           const filteredUsers = params.query
             ? allUsers.filter((user) =>
@@ -138,6 +148,7 @@ const productBody = (
   overrides: Partial<{
     name: string;
     status: "draft" | "published" | "archived";
+    imageUrl: string | null;
   }> = {},
 ) => ({
   name: "Indigo hand-dyed wrap",
@@ -223,11 +234,25 @@ async function cleanupStaleTestSchemas() {
     LIMIT ${staleSchemaCleanupLimit}
   `);
 
+  let removedSchemaCount = 0;
   for (const { schemaName } of candidates.rows) {
     // The value came from pg_namespace and already passed the strict naming
     // filter. sql.identifier still escapes it as a PostgreSQL identifier.
     await db.execute(
       sql`DROP SCHEMA IF EXISTS ${sql.identifier(schemaName)} CASCADE`,
+    );
+    removedSchemaCount += 1;
+  }
+
+  console.log(
+    `Vendor test schema cleanup: selected ${candidates.rows.length}, ` +
+      `removed ${removedSchemaCount}.`,
+  );
+  if (candidates.rows.length === staleSchemaCleanupLimit) {
+    console.warn(
+      `Vendor test schema cleanup reached its safety cap of ` +
+        `${staleSchemaCleanupLimit}; additional stale schemas may remain. ` +
+        "Rerun cleanup to remove them.",
     );
   }
 }
@@ -240,6 +265,50 @@ async function dropSchema(schemaName: string) {
   await db.execute(
     sql`DROP SCHEMA IF EXISTS ${sql.identifier(schemaName)} CASCADE`,
   );
+}
+
+async function runLegacySchemaCleanup(arguments_: string[]) {
+  const { DB_SCHEMA: _dbSchema, ...environment } = process.env;
+  try {
+    return await execFileAsync(
+      "pnpm",
+      [
+        "--filter",
+        "@workspace/api-server",
+        "cleanup:legacy-vendor-schemas",
+        ...arguments_,
+      ],
+      {
+        cwd: workspaceRoot,
+        env: environment,
+        maxBuffer: 10 * 1024 * 1024,
+      },
+    );
+  } catch (error) {
+    const commandError = error as {
+      message?: string;
+      stderr?: string;
+    };
+    throw new Error(
+      `${commandError.message ?? String(error)}\n${commandError.stderr ?? ""}`,
+      { cause: error },
+    );
+  }
+}
+
+async function schemaNames(names: string[]) {
+  const result = await db.execute<{ schemaName: string }>(sql`
+    SELECT nspname AS "schemaName"
+    FROM pg_catalog.pg_namespace
+    WHERE nspname IN (
+      ${sql.join(
+        names.map((schemaName) => sql`${schemaName}`),
+        sql`, `,
+      )}
+    )
+    ORDER BY nspname
+  `);
+  return result.rows.map(({ schemaName }) => schemaName);
 }
 
 async function pushCanonicalSchema() {
@@ -289,9 +358,13 @@ describe("vendor authorization", () => {
       productsTable,
       productImageCleanupTable,
     } = await import("@workspace/db"));
-    await cleanupStaleTestSchemas();
-    await db.execute(sql.raw(`CREATE SCHEMA ${quotedTestSchema}`));
+
+    // Creating this uniquely named schema is the only bootstrap DDL before
+    // the guard. The assertion must be the first operation after creation,
+    // before stale-schema cleanup, canonical schema setup, or fixture writes.
+    await createSchema(testSchema);
     await assertDatabaseSchema(testSchema);
+    await cleanupStaleTestSchemas();
     await pushCanonicalSchema();
 
     ({ default: app } = await import("../app"));
@@ -326,6 +399,211 @@ describe("vendor authorization", () => {
         if (pool) {
           await pool.end();
         }
+      }
+    }
+  });
+
+  it("lists only supported legacy vendor schema formats", async () => {
+    const fixtureRunId = crypto.randomUUID().replaceAll("-", "");
+    const legacyUuidSchema = `${testSchemaPrefix}${crypto.randomUUID()}`;
+    const legacyCompactSchema = `${testSchemaPrefix}${crypto
+      .randomUUID()
+      .replaceAll("-", "")}`;
+    const nonLegacySchema = `${testSchemaPrefix}active_${fixtureRunId}`;
+    const applicationSchema = `afrotextile_application_${fixtureRunId}`;
+    const fixtureSchemaNames = [
+      legacyUuidSchema,
+      legacyCompactSchema,
+      nonLegacySchema,
+      applicationSchema,
+    ];
+
+    try {
+      for (const schemaName of fixtureSchemaNames) {
+        await createSchema(schemaName);
+      }
+
+      const cleanupResult = await runLegacySchemaCleanup(["--list"]);
+
+      expect(cleanupResult.stdout).toContain(legacyUuidSchema);
+      expect(cleanupResult.stdout).toContain(legacyCompactSchema);
+      expect(cleanupResult.stdout).not.toContain(nonLegacySchema);
+      expect(cleanupResult.stdout).not.toContain(applicationSchema);
+      expect(await schemaNames(fixtureSchemaNames)).toEqual(
+        [...fixtureSchemaNames].sort(),
+      );
+    } finally {
+      for (const schemaName of fixtureSchemaNames) {
+        await dropSchema(schemaName);
+      }
+    }
+  });
+
+  it("rejects unsafe legacy schema allowlists without dropping anything", async () => {
+    const reviewedSchema = `${testSchemaPrefix}${crypto.randomUUID()}`;
+    const secondReviewedSchema = `${testSchemaPrefix}${crypto
+      .randomUUID()
+      .replaceAll("-", "")}`;
+    const nonLegacySchema = `afrotextile_application_${crypto
+      .randomUUID()
+      .replaceAll("-", "")}`;
+    const staleSchema = `${testSchemaPrefix}${crypto.randomUUID()}`;
+    const fixtureSchemaNames = [
+      reviewedSchema,
+      secondReviewedSchema,
+      nonLegacySchema,
+    ];
+    const staleCleanupError =
+      `Schema was not present in the reviewed listing: ${staleSchema}.`;
+
+    try {
+      for (const schemaName of fixtureSchemaNames) {
+        await createSchema(schemaName);
+      }
+
+      await expect(
+        runLegacySchemaCleanup(["--drop", reviewedSchema]),
+      ).rejects.toThrow(
+        "Dropping legacy schemas requires --confirm after reviewing --list.",
+      );
+      await expect(
+        runLegacySchemaCleanup(["--drop", nonLegacySchema, "--confirm"]),
+      ).rejects.toThrow(`Refusing non-legacy schema name: ${nonLegacySchema}.`);
+      await expect(
+        runLegacySchemaCleanup([
+          "--drop",
+          `${reviewedSchema},${reviewedSchema}`,
+          "--confirm",
+        ]),
+      ).rejects.toThrow(
+        `Duplicate schema names in allowlist: ${reviewedSchema}`,
+      );
+      await expect(
+        runLegacySchemaCleanup([
+          "--drop",
+          `${reviewedSchema},${staleSchema}`,
+          "--confirm",
+        ]),
+      ).rejects.toThrow(staleCleanupError);
+
+      expect(await schemaNames(fixtureSchemaNames)).toEqual(
+        [...fixtureSchemaNames].sort(),
+      );
+    } finally {
+      for (const schemaName of [...fixtureSchemaNames, staleSchema]) {
+        await dropSchema(schemaName);
+      }
+    }
+  });
+
+  it("drops only the approved exact legacy schema allowlist", async () => {
+    const approvedUuidSchema = `${testSchemaPrefix}${crypto.randomUUID()}`;
+    const approvedCompactSchema = `${testSchemaPrefix}${crypto
+      .randomUUID()
+      .replaceAll("-", "")}`;
+    const unapprovedLegacySchema = `${testSchemaPrefix}${crypto.randomUUID()}`;
+    const applicationSchema = `afrotextile_application_${crypto
+      .randomUUID()
+      .replaceAll("-", "")}`;
+    const fixtureSchemaNames = [
+      approvedUuidSchema,
+      approvedCompactSchema,
+      unapprovedLegacySchema,
+      applicationSchema,
+    ];
+
+    try {
+      for (const schemaName of fixtureSchemaNames) {
+        await createSchema(schemaName);
+      }
+
+      const listing = await runLegacySchemaCleanup(["--list"]);
+      expect(listing.stdout).toContain(approvedUuidSchema);
+      expect(listing.stdout).toContain(approvedCompactSchema);
+      expect(listing.stdout).toContain(unapprovedLegacySchema);
+
+      const cleanupResult = await runLegacySchemaCleanup([
+        "--drop",
+        `${approvedUuidSchema},${approvedCompactSchema}`,
+        "--confirm",
+      ]);
+
+      expect(cleanupResult.stdout).toContain(approvedUuidSchema);
+      expect(cleanupResult.stdout).toContain(approvedCompactSchema);
+      expect(await schemaNames(fixtureSchemaNames)).toEqual(
+        [applicationSchema, unapprovedLegacySchema].sort(),
+      );
+    } finally {
+      for (const schemaName of fixtureSchemaNames) {
+        await dropSchema(schemaName);
+      }
+    }
+  });
+
+  it("coordinates concurrent cleanup runs and reports overlapping schemas as already removed", async () => {
+    const sharedSchema = `${testSchemaPrefix}${crypto.randomUUID()}`;
+    const firstOnlySchema = `${testSchemaPrefix}${crypto.randomUUID()}`;
+    const secondOnlySchema = `${testSchemaPrefix}${crypto
+      .randomUUID()
+      .replaceAll("-", "")
+      .slice(0, 32)}`;
+    const unapprovedLegacySchema = `${testSchemaPrefix}${crypto.randomUUID()}`;
+    const applicationSchema = `afrotextile_application_${crypto
+      .randomUUID()
+      .replaceAll("-", "")}`;
+    const fixtureSchemaNames = [
+      sharedSchema,
+      firstOnlySchema,
+      secondOnlySchema,
+      unapprovedLegacySchema,
+      applicationSchema,
+    ];
+    const cleanupLockSql =
+      "SELECT pg_advisory_lock(hashtextextended(" +
+      "'afrotextile:legacy-vendor-schema-cleanup', 0))";
+    const cleanupUnlockSql =
+      "SELECT pg_advisory_unlock(hashtextextended(" +
+      "'afrotextile:legacy-vendor-schema-cleanup', 0))";
+    const lockClient = await pool.connect();
+    let cleanupLockHeld = false;
+
+    try {
+      for (const schemaName of fixtureSchemaNames) {
+        await createSchema(schemaName);
+      }
+
+      await lockClient.query(cleanupLockSql);
+      cleanupLockHeld = true;
+      const cleanups = Promise.all([
+        runLegacySchemaCleanup([
+          "--drop",
+          `${sharedSchema},${firstOnlySchema}`,
+          "--confirm",
+        ]),
+        runLegacySchemaCleanup([
+          "--drop",
+          `${sharedSchema},${secondOnlySchema}`,
+          "--confirm",
+        ]),
+      ]);
+      // Both subprocesses review the allowlist before waiting for this lock.
+      await new Promise<void>((resolve) => setTimeout(resolve, 10_000));
+      await lockClient.query(cleanupUnlockSql);
+      cleanupLockHeld = false;
+      const [firstCleanup, secondCleanup] = await cleanups;
+
+      const combinedOutput = firstCleanup.stdout + secondCleanup.stdout;
+      expect(combinedOutput).toContain("already removed");
+      expect(await schemaNames(fixtureSchemaNames)).toEqual(
+        [applicationSchema, unapprovedLegacySchema].sort(),
+      );
+    } finally {
+      if (cleanupLockHeld) {
+        await lockClient.query(cleanupUnlockSql);
+      }
+      lockClient.release();
+      for (const schemaName of fixtureSchemaNames) {
+        await dropSchema(schemaName);
       }
     }
   });
@@ -399,7 +677,27 @@ describe("vendor authorization", () => {
           await createSchema(schemaName);
         }
 
-        await cleanupStaleTestSchemas();
+        const cleanupLog = vi
+          .spyOn(console, "log")
+          .mockImplementation(() => undefined);
+        const cleanupWarning = vi
+          .spyOn(console, "warn")
+          .mockImplementation(() => undefined);
+        try {
+          await cleanupStaleTestSchemas();
+          expect(cleanupLog).toHaveBeenCalledWith(
+            `Vendor test schema cleanup: selected ${staleSchemaCleanupLimit}, ` +
+              `removed ${staleSchemaCleanupLimit}.`,
+          );
+          expect(cleanupWarning).toHaveBeenCalledWith(
+            `Vendor test schema cleanup reached its safety cap of ` +
+              `${staleSchemaCleanupLimit}; additional stale schemas may remain. ` +
+              "Rerun cleanup to remove them.",
+          );
+        } finally {
+          cleanupLog.mockRestore();
+          cleanupWarning.mockRestore();
+        }
 
         const remainingSchemas = await db.execute<{ schemaName: string }>(sql`
           SELECT nspname AS "schemaName"
@@ -438,6 +736,91 @@ describe("vendor authorization", () => {
     },
   );
 
+  it.skipIf(!staleSchemaCleanupEnabled)(
+    "fails visibly without reporting a failed stale schema as removed",
+    async () => {
+      const failedSchemaName = `${testSchemaPrefix}1000000000_${crypto
+        .randomUUID()
+        .replaceAll("-", "")}`;
+      const cleanupLog = vi
+        .spyOn(console, "log")
+        .mockImplementation(() => undefined);
+      const cleanupExecute = vi.spyOn(db, "execute");
+
+      cleanupExecute
+        .mockResolvedValueOnce({
+          rows: [{ schemaName: failedSchemaName }],
+        } as never)
+        .mockRejectedValueOnce(new Error("simulated schema drop failure"));
+
+      try {
+        await expect(cleanupStaleTestSchemas()).rejects.toThrow(
+          "simulated schema drop failure",
+        );
+        expect(cleanupExecute).toHaveBeenCalledTimes(2);
+        expect(cleanupLog).not.toHaveBeenCalled();
+        expect(cleanupLog).not.toHaveBeenCalledWith(
+          `Vendor test schema cleanup: selected 1, removed 1.`,
+        );
+      } finally {
+        cleanupExecute.mockRestore();
+        cleanupLog.mockRestore();
+      }
+    },
+  );
+
+  it("rolls back reviewed schema cleanup and reports attempted schemas on a database error", async () => {
+    const firstSchema = `${testSchemaPrefix}${crypto.randomUUID()}`;
+    const failedSchema = `${testSchemaPrefix}${crypto
+      .randomUUID()
+      .replaceAll("-", "")}`;
+    const thirdSchema = `${testSchemaPrefix}${crypto.randomUUID()}`;
+    const attemptedStatements: string[] = [];
+    const schemaExistsSql =
+      'SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname = $1) AS "schemaExists"';
+    const client = {
+      query: vi.fn(async (statement: string) => {
+        attemptedStatements.push(statement);
+        if (statement.includes(`DROP SCHEMA IF EXISTS "${failedSchema}"`)) {
+          throw new Error("simulated schema drop failure");
+        }
+        if (statement === schemaExistsSql) {
+          return { rows: [{ schemaExists: true }] };
+        }
+        return { rows: [] };
+      }),
+      release: vi.fn(),
+    };
+    const pool = {
+      connect: vi.fn().mockResolvedValue(client),
+    };
+
+    await expect(
+      dropReviewedSchemas(pool as never, [
+        firstSchema,
+        failedSchema,
+        thirdSchema,
+      ]),
+    ).rejects.toThrow(
+      "The transaction was rolled back; no schemas were removed. " +
+        `Schemas attempted: ${firstSchema}, ${failedSchema}.`,
+    );
+
+    expect(attemptedStatements).toEqual([
+      "BEGIN",
+      "SELECT pg_advisory_xact_lock(hashtextextended('afrotextile:legacy-vendor-schema-cleanup', 0))",
+      schemaExistsSql,
+      `DROP SCHEMA IF EXISTS "${firstSchema}" CASCADE`,
+      schemaExistsSql,
+      `DROP SCHEMA IF EXISTS "${failedSchema}" CASCADE`,
+      "ROLLBACK",
+    ]);
+    expect(attemptedStatements).not.toContain(
+      `DROP SCHEMA "${thirdSchema}" CASCADE`,
+    );
+    expect(client.release).toHaveBeenCalledOnce();
+  });
+
   it("records every reviewer grant and revoke and limits history to admins", async () => {
     const targetUserId = `task-21-target-${runId}`;
 
@@ -446,7 +829,16 @@ describe("vendor authorization", () => {
     ).resolves.toMatchObject({ status: 403 });
     await expect(
       request("/vendor-reviewer-access-history", { userId: "task-13-admin" }),
-    ).resolves.toMatchObject({ status: 200, body: [] });
+    ).resolves.toMatchObject({
+      status: 200,
+      body: {
+        items: [],
+        page: 1,
+        limit: 25,
+        totalCount: 0,
+        hasNextPage: false,
+      },
+    });
 
     const granted = await request(`/vendor-reviewers/${targetUserId}`, {
       method: "PATCH",
@@ -466,7 +858,7 @@ describe("vendor authorization", () => {
       userId: "task-13-admin",
     });
     expect(history.status).toBe(200);
-    expect(history.body).toEqual(
+    expect((history.body as { items: Array<Record<string, unknown>> }).items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           targetUserId,
@@ -496,12 +888,248 @@ describe("vendor authorization", () => {
         }),
       ]),
     );
-    expect((history.body as Array<Record<string, unknown>>)).toHaveLength(2);
+    expect((history.body as { items: Array<Record<string, unknown>> }).items).toHaveLength(2);
     expect(
-      (history.body as Array<Record<string, unknown>>).every(
+      (history.body as { items: Array<Record<string, unknown>> }).items.every(
         (entry) => typeof entry.changedAt === "string",
       ),
     ).toBe(true);
+
+    const firstHistoryPage = await request(
+      "/vendor-reviewer-access-history?page=1&limit=1",
+      { userId: "task-13-admin" },
+    );
+    expect(firstHistoryPage.status).toBe(200);
+    expect(firstHistoryPage.body).toMatchObject({
+      page: 1,
+      limit: 1,
+      totalCount: 2,
+      hasNextPage: true,
+    });
+    expect(
+      (firstHistoryPage.body as { items: Array<Record<string, unknown>> }).items,
+    ).toHaveLength(1);
+
+    const secondHistoryPage = await request(
+      "/vendor-reviewer-access-history?page=2&limit=1",
+      { userId: "task-13-admin" },
+    );
+    expect(secondHistoryPage.status).toBe(200);
+    expect(secondHistoryPage.body).toMatchObject({
+      page: 2,
+      limit: 1,
+      totalCount: 2,
+      hasNextPage: false,
+    });
+    expect(
+      (secondHistoryPage.body as { items: Array<Record<string, unknown>> }).items,
+    ).toHaveLength(1);
+    expect(
+      (
+        firstHistoryPage.body as {
+          items: Array<{ id: string }>;
+        }
+      ).items[0]?.id,
+    ).not.toBe(
+      (
+        secondHistoryPage.body as {
+          items: Array<{ id: string }>;
+        }
+      ).items[0]?.id,
+    );
+
+    await expect(
+      request("/vendor-reviewer-access-history?limit=51", {
+        userId: "task-13-admin",
+      }),
+    ).resolves.toMatchObject({ status: 400 });
+  });
+
+  it("denies vendor reviewers all reviewer management endpoints", async () => {
+    const vendorReviewerId = "task-136-vendor-reviewer";
+    const targetUserId = `task-136-target-${runId}`;
+    const historyBefore = await request("/vendor-reviewer-access-history", {
+      userId: "task-13-admin",
+    });
+    expect(historyBefore.status).toBe(200);
+    const historyBeforeCount = (
+      historyBefore.body as { totalCount: number }
+    ).totalCount;
+
+    const reviewerList = await request(
+      `/vendor-reviewers?search=${targetUserId}`,
+      { userId: vendorReviewerId },
+    );
+    expect(reviewerList).toEqual({
+      status: 403,
+      body: { error: "Admin access required" },
+    });
+
+    const accessHistory = await request("/vendor-reviewer-access-history", {
+      userId: vendorReviewerId,
+    });
+    expect(accessHistory).toEqual({
+      status: 403,
+      body: { error: "Admin access required" },
+    });
+
+    const reviewerUpdate = await request(`/vendor-reviewers/${targetUserId}`, {
+      method: "PATCH",
+      userId: vendorReviewerId,
+      body: { enabled: true },
+    });
+    expect(reviewerUpdate).toEqual({
+      status: 403,
+      body: { error: "Admin access required" },
+    });
+
+    const historyAfter = await request("/vendor-reviewer-access-history", {
+      userId: "task-13-admin",
+    });
+    expect(historyAfter.status).toBe(200);
+    expect(
+      (historyAfter.body as { totalCount: number }).totalCount,
+    ).toBe(historyBeforeCount);
+    expect(
+      (historyAfter.body as { items: Array<{ actorUserId: string }> }).items,
+    ).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ actorUserId: vendorReviewerId }),
+      ]),
+    );
+  });
+
+  it("does not duplicate audit entries when access history is requested repeatedly", async () => {
+    const targetUserId = `task-135-history-recovery-${runId}`;
+
+    const granted = await request(`/vendor-reviewers/${targetUserId}`, {
+      method: "PATCH",
+      userId: "task-13-admin",
+      body: { enabled: true },
+    });
+    expect(granted.status).toBe(200);
+
+    const repeatedHistoryRequests = await Promise.all(
+      Array.from({ length: 3 }, () =>
+        request("/vendor-reviewer-access-history?limit=50", {
+          userId: "task-13-admin",
+        }),
+      ),
+    );
+    const targetEntriesByRequest = repeatedHistoryRequests.map((response) => {
+      expect(response.status).toBe(200);
+      return (
+        response.body as {
+          items: Array<{ id: string; targetUserId: string }>;
+        }
+      ).items.filter((entry) => entry.targetUserId === targetUserId);
+    });
+
+    expect(targetEntriesByRequest).toHaveLength(3);
+    for (const targetEntries of targetEntriesByRequest) {
+      expect(targetEntries).toHaveLength(1);
+    }
+    expect(
+      targetEntriesByRequest.map((entries) => entries[0]?.id),
+    ).toEqual([
+      targetEntriesByRequest[0]![0]!.id,
+      targetEntriesByRequest[0]![0]!.id,
+      targetEntriesByRequest[0]![0]!.id,
+    ]);
+  });
+
+  it("serializes concurrent reviewer mutations without losing actor history", async () => {
+    const targetUserId = "task-133-concurrent-target";
+    const mutations = [
+      {
+        actorUserId: "task-133-admin-a",
+        enabled: true,
+        action: "grant" as const,
+      },
+      {
+        actorUserId: "task-133-admin-b",
+        enabled: false,
+        action: "revoke" as const,
+      },
+    ];
+    const startedAt = Date.now();
+    const completed: Array<{
+      actorUserId: string;
+      enabled: boolean;
+      completedAt: number;
+      response: ApiResponse;
+    }> = [];
+
+    await Promise.all(
+      mutations.map(async ({ actorUserId, enabled }) => {
+        const response = await request(`/vendor-reviewers/${targetUserId}`, {
+          method: "PATCH",
+          userId: actorUserId,
+          body: { enabled },
+        });
+        completed.push({
+          actorUserId,
+          enabled,
+          completedAt: Date.now(),
+          response,
+        });
+      }),
+    );
+
+    expect(completed).toHaveLength(mutations.length);
+    expect(completed.every(({ response }) => response.status === 200)).toBe(
+      true,
+    );
+
+    const history = await request("/vendor-reviewer-access-history?limit=50", {
+      userId: "task-133-admin-a",
+    });
+    expect(history.status).toBe(200);
+
+    const entries = (
+      history.body as {
+        items: Array<{
+          id: string;
+          targetUserId: string;
+          actorUserId: string;
+          action: "grant" | "revoke";
+          changedAt: string;
+        }>;
+      }
+    ).items.filter((entry) => entry.targetUserId === targetUserId);
+    expect(entries).toHaveLength(mutations.length);
+
+    for (const mutation of mutations) {
+      const matchingEntries = entries.filter(
+        (entry) =>
+          entry.actorUserId === mutation.actorUserId &&
+          entry.action === mutation.action,
+      );
+      expect(matchingEntries).toHaveLength(1);
+
+      const completedMutation = completed.find(
+        ({ actorUserId }) => actorUserId === mutation.actorUserId,
+      );
+      const changedAt = Date.parse(matchingEntries[0]!.changedAt);
+      expect(Number.isNaN(changedAt)).toBe(false);
+      expect(changedAt).toBeGreaterThanOrEqual(startedAt);
+      expect(changedAt).toBeLessThanOrEqual(completedMutation!.completedAt);
+    }
+
+    const lastCompleted = completed.at(-1)!;
+    const finalReviewer = await request(`/vendor-reviewers?search=${targetUserId}`, {
+      userId: "task-133-admin-a",
+    });
+    expect(finalReviewer.status).toBe(200);
+    expect(finalReviewer.body).toMatchObject({
+      items: [
+        {
+          userId: targetUserId,
+          vendorReviewer: lastCompleted.enabled,
+          updatedByUserId: lastCompleted.actorUserId,
+        },
+      ],
+    });
   });
 
   it("searches and paginates reviewer users with bounded page sizes", async () => {
@@ -598,6 +1226,82 @@ describe("vendor authorization", () => {
         body: { businessName: "Admin Reviewed Kente House" },
       }),
     ).resolves.toMatchObject({ status: 200 });
+  });
+
+  it("records owner and administrator storefront edits in vendor history", async () => {
+    const ownerId = "task-127-owner";
+    const otherUserId = "task-127-other";
+    const adminId = "task-13-admin";
+    const application = await submitApplication(ownerId, "audit");
+    await setStatus(application.id, "approved");
+
+    await expect(
+      request(`/vendors/${application.id}/history`, { userId: ownerId }),
+    ).resolves.toMatchObject({ status: 200, body: [] });
+    await expect(
+      request(`/vendors/${application.id}/history`, { userId: otherUserId }),
+    ).resolves.toMatchObject({ status: 403 });
+    await expect(
+      request(`/vendors/${application.id}/history`),
+    ).resolves.toMatchObject({ status: 401 });
+
+    const ownerUpdate = await request(`/vendors/${application.id}`, {
+      method: "PATCH",
+      userId: ownerId,
+      body: { description: "The owner refreshed this storefront story." },
+    });
+    expect(ownerUpdate.status).toBe(200);
+
+    const adminUpdate = await request(`/vendors/${application.id}`, {
+      method: "PATCH",
+      userId: adminId,
+      body: {
+        businessName: "Administrator Reviewed Audit House",
+        phone: "+2348098765432",
+      },
+    });
+    expect(adminUpdate.status).toBe(200);
+
+    const history = await request(`/vendors/${application.id}/history`, {
+      userId: adminId,
+    });
+    expect(history.status).toBe(200);
+    expect(history.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          vendorId: application.id,
+          actorUserId: ownerId,
+          action: "edited",
+          changes: {
+            description: {
+              from: applicationBody("ignored", "ignored").description,
+              to: "The owner refreshed this storefront story.",
+            },
+          },
+        }),
+        expect.objectContaining({
+          vendorId: application.id,
+          actorUserId: adminId,
+          action: "edited",
+          changes: {
+            businessName: {
+              from: "Kente House audit",
+              to: "Administrator Reviewed Audit House",
+            },
+            phone: {
+              from: "+2348012345678",
+              to: "+2348098765432",
+            },
+          },
+        }),
+      ]),
+    );
+    expect((history.body as Array<Record<string, unknown>>)).toHaveLength(2);
+    expect(
+      (history.body as Array<Record<string, unknown>>).every(
+        (entry) => typeof entry.changedAt === "string",
+      ),
+    ).toBe(true);
   });
 
   it("allows only admins to list applications and change application status", async () => {
@@ -1008,6 +1712,434 @@ describe("vendor authorization", () => {
       ).resolves.toEqual([]);
     } finally {
       deleteObject.mockRestore();
+      await db
+        .delete(productImageCleanupTable)
+        .where(eq(productImageCleanupTable.imagePath, imagePath));
+    }
+  });
+
+  it("claims a pending image cleanup only once across overlapping workers", async () => {
+    const { objectStorageService } = await import("../lib/objectStorage");
+    const { processPendingProductImageCleanups } =
+      await import("../lib/productImageCleanup");
+    const imagePath = `/objects/uploads/concurrent-${runId}`;
+    await db.insert(productImageCleanupTable).values({
+      imagePath,
+      attempts: 1,
+      nextAttemptAt: new Date(0),
+      lastAttemptAt: new Date(0),
+      lastError: "temporary storage outage",
+    });
+
+    let releaseDelete!: () => void;
+    const deletionMayFinish = new Promise<void>((resolve) => {
+      releaseDelete = resolve;
+    });
+    let deletionStarted!: () => void;
+    const deletionHasStarted = new Promise<void>((resolve) => {
+      deletionStarted = resolve;
+    });
+    const deleteObject = vi
+      .spyOn(objectStorageService, "deleteObjectEntity")
+      .mockImplementation(async () => {
+        deletionStarted();
+        await deletionMayFinish;
+      });
+
+    try {
+      const workers = [
+        processPendingProductImageCleanups(),
+        processPendingProductImageCleanups(),
+      ];
+
+      // Keep the first worker inside its transaction so the second call
+      // overlaps the lease claim instead of running after cleanup finishes.
+      await deletionHasStarted;
+      expect(deleteObject).toHaveBeenCalledTimes(1);
+      releaseDelete();
+      await Promise.all(workers);
+
+      expect(deleteObject).toHaveBeenCalledTimes(1);
+      await expect(
+        db
+          .select()
+          .from(productImageCleanupTable)
+          .where(eq(productImageCleanupTable.imagePath, imagePath)),
+      ).resolves.toEqual([]);
+    } finally {
+      releaseDelete();
+      deleteObject.mockRestore();
+      await db
+        .delete(productImageCleanupTable)
+        .where(eq(productImageCleanupTable.imagePath, imagePath));
+    }
+  });
+
+  it("limits product-image cleanup status to admins and redacts storage details", async () => {
+    const imagePath = `/objects/uploads/status-${runId}-private`;
+    const createdAt = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const lastAttemptAt = new Date(Date.now() - 30 * 60 * 1000);
+    const nextAttemptAt = new Date(Date.now() + 30 * 60 * 1000);
+
+    await db.insert(productImageCleanupTable).values({
+      imagePath,
+      attempts: 3,
+      createdAt,
+      lastAttemptAt,
+      nextAttemptAt,
+      lastError:
+        "DELETE failed for /objects/uploads/status-private " +
+        "at https://storage.example.test/private?token=secret-value",
+    });
+
+    try {
+      await expect(request("/product-image-cleanup")).resolves.toMatchObject({
+        status: 401,
+      });
+      await expect(
+        request("/product-image-cleanup", { userId: "task-69-operator" }),
+      ).resolves.toMatchObject({ status: 403 });
+
+      const result = await request("/product-image-cleanup", {
+        userId: "task-13-admin",
+      });
+      expect(result.status).toBe(200);
+      expect(result.body).toMatchObject({
+        pendingCount: 1,
+        oldestRetryAgeSeconds: expect.any(Number),
+        failures: [
+          {
+            attempts: 3,
+            lastAttemptAt: lastAttemptAt.toISOString(),
+            nextAttemptAt: nextAttemptAt.toISOString(),
+            createdAt: createdAt.toISOString(),
+          },
+        ],
+      });
+      const body = result.body as {
+        failures: Array<{ lastError: string | null }>;
+      };
+      expect(body.failures[0]?.lastError).toContain(
+        "DELETE failed for [redacted object path]",
+      );
+      expect(body.failures[0]?.lastError).toContain(
+        "[redacted storage URL]",
+      );
+      expect(body.failures[0]?.lastError).not.toContain(imagePath);
+      expect(body.failures[0]?.lastError).not.toContain("secret-value");
+    } finally {
+      await db
+        .delete(productImageCleanupTable)
+        .where(eq(productImageCleanupTable.imagePath, imagePath));
+    }
+  });
+
+  it("lets administrators retry one cleanup entry without exposing its object path", async () => {
+    const { objectStorageService } = await import("../lib/objectStorage");
+    const imagePath = `/objects/uploads/manual-retry-${runId}-private`;
+    await db.insert(productImageCleanupTable).values({
+      imagePath,
+      attempts: 2,
+      nextAttemptAt: new Date(Date.now() + 60 * 60 * 1000),
+      lastAttemptAt: new Date(),
+      lastError: "temporary storage outage",
+    });
+    const deleteObject = vi
+      .spyOn(objectStorageService, "deleteObjectEntity")
+      .mockResolvedValue(undefined);
+
+    try {
+      await expect(
+        request(
+          `/product-image-cleanup/${"a".repeat(64)}/retry`,
+          { method: "POST" },
+        ),
+      ).resolves.toMatchObject({ status: 401 });
+      await expect(
+        request(
+          `/product-image-cleanup/${"a".repeat(64)}/retry`,
+          { method: "POST", userId: "task-69-operator" },
+        ),
+      ).resolves.toMatchObject({ status: 403 });
+
+      const status = await request("/product-image-cleanup", {
+        userId: "task-13-admin",
+      });
+      expect(status.status).toBe(200);
+      const failure = (
+        status.body as {
+          failures: Array<{ id: string }>;
+        }
+      ).failures[0];
+      expect(failure?.id).toMatch(/^[a-f0-9]{64}$/);
+      expect(JSON.stringify(status.body)).not.toContain(imagePath);
+
+      const retry = await request(
+        `/product-image-cleanup/${failure?.id}/retry`,
+        { method: "POST", userId: "task-13-admin" },
+      );
+      expect(retry).toMatchObject({
+        status: 200,
+        body: {
+          status: "cleaned",
+          message: "Product photo cleanup completed.",
+        },
+      });
+      expect(deleteObject).toHaveBeenCalledWith(imagePath);
+      await expect(
+        db
+          .select()
+          .from(productImageCleanupTable)
+          .where(eq(productImageCleanupTable.imagePath, imagePath)),
+      ).resolves.toEqual([]);
+    } finally {
+      deleteObject.mockRestore();
+      await db
+        .delete(productImageCleanupTable)
+        .where(eq(productImageCleanupTable.imagePath, imagePath));
+    }
+  });
+
+  it("reports a failed administrator cleanup retry while keeping it queued", async () => {
+    const { objectStorageService } = await import("../lib/objectStorage");
+    const imagePath = `/objects/uploads/manual-retry-failure-${runId}`;
+    await db.insert(productImageCleanupTable).values({
+      imagePath,
+      attempts: 1,
+      nextAttemptAt: new Date(Date.now() + 60 * 60 * 1000),
+      lastAttemptAt: new Date(),
+    });
+    const deleteObject = vi
+      .spyOn(objectStorageService, "deleteObjectEntity")
+      .mockRejectedValue(new Error("temporary storage outage"));
+
+    try {
+      const status = await request("/product-image-cleanup", {
+        userId: "task-13-admin",
+      });
+      const failure = (
+        status.body as {
+          failures: Array<{ id: string }>;
+        }
+      ).failures.find((entry) => entry.id);
+      if (!failure) {
+        throw new Error("Cleanup entry was not returned by the status endpoint");
+      }
+
+      const retry = await request(
+        `/product-image-cleanup/${failure.id}/retry`,
+        { method: "POST", userId: "task-13-admin" },
+      );
+      expect(retry).toMatchObject({
+        status: 200,
+        body: {
+          status: "failed",
+          message:
+            "Product photo cleanup failed and remains queued for another retry.",
+        },
+      });
+
+      const [pending] = await db
+        .select()
+        .from(productImageCleanupTable)
+        .where(eq(productImageCleanupTable.imagePath, imagePath));
+      expect(pending).toMatchObject({
+        imagePath,
+        attempts: 2,
+        lastError: "temporary storage outage",
+      });
+      expect(JSON.stringify(retry.body)).not.toContain(imagePath);
+    } finally {
+      deleteObject.mockRestore();
+      await db
+        .delete(productImageCleanupTable)
+        .where(eq(productImageCleanupTable.imagePath, imagePath));
+    }
+  });
+
+  it("does not delete an image reused while a cleanup retry is pending", async () => {
+    const { objectStorageService } = await import("../lib/objectStorage");
+    const { processPendingProductImageCleanups } =
+      await import("../lib/productImageCleanup");
+    const ownerId = `task-68-cleanup-race-owner-${runId}`;
+    const vendor = await submitApplication(ownerId, "cleanup-race");
+    await expect(setStatus(vendor.id, "approved")).resolves.toMatchObject({
+      status: 200,
+    });
+
+    const imagePath = `/objects/uploads/reused-${runId}`;
+    const original = await request(`/vendors/${vendor.id}/products`, {
+      method: "POST",
+      userId: ownerId,
+      body: productBody({
+        name: "Original reused image",
+        imageUrl: imagePath,
+      }),
+    });
+    expect(original.status).toBe(201);
+
+    await db.insert(productImageCleanupTable).values({
+      imagePath,
+      attempts: 1,
+      nextAttemptAt: new Date(0),
+      lastAttemptAt: new Date(0),
+      lastError: "temporary storage outage",
+    });
+
+    const deleteObject = vi
+      .spyOn(objectStorageService, "deleteObjectEntity")
+      .mockResolvedValue(undefined);
+    let productId: string | undefined;
+
+    try {
+      const savePromise = request(`/vendors/${vendor.id}/products`, {
+        method: "POST",
+        userId: ownerId,
+        body: productBody({
+          name: "Reused cleanup-race image",
+          imageUrl: imagePath,
+        }),
+      });
+
+      // Start the retry while the real product save is in flight. The save
+      // overlaps the worker's final reference check for the same object path.
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      const cleanupPromise = processPendingProductImageCleanups();
+      const [saved] = await Promise.all([savePromise, cleanupPromise]);
+
+      expect(saved.status).toBe(201);
+      productId = (saved.body as { id: string }).id;
+      expect(deleteObject).not.toHaveBeenCalled();
+
+      await expect(
+        db
+          .select()
+          .from(productImageCleanupTable)
+          .where(eq(productImageCleanupTable.imagePath, imagePath)),
+      ).resolves.toEqual([]);
+      await expect(
+        db
+          .select({ imageUrl: productsTable.imageUrl })
+          .from(productsTable)
+          .where(eq(productsTable.id, productId)),
+      ).resolves.toEqual([{ imageUrl: imagePath }]);
+    } finally {
+      deleteObject.mockRestore();
+      if (productId) {
+        await db.delete(productsTable).where(eq(productsTable.id, productId));
+      }
+      await db
+        .delete(productImageCleanupTable)
+        .where(eq(productImageCleanupTable.imagePath, imagePath));
+    }
+  });
+
+  it("waits for an overlapping product save before deleting its image", async () => {
+    const { objectStorageService } = await import("../lib/objectStorage");
+    const { lockProductImageReference, processPendingProductImageCleanups } =
+      await import("../lib/productImageCleanup");
+    const ownerId = `task-109-cleanup-race-owner-${runId}`;
+    const vendor = await submitApplication(ownerId, "cleanup-race-save");
+    await expect(setStatus(vendor.id, "approved")).resolves.toMatchObject({
+      status: 200,
+    });
+
+    const imagePath = `/objects/uploads/save-in-flight-${runId}`;
+    await db.insert(productImageCleanupTable).values({
+      imagePath,
+      attempts: 1,
+      nextAttemptAt: new Date(0),
+      lastAttemptAt: new Date(0),
+      lastError: "temporary storage outage",
+    });
+
+    const deleteObject = vi
+      .spyOn(objectStorageService, "deleteObjectEntity")
+      .mockResolvedValue(undefined);
+    let releaseSave!: () => void;
+    const saveMayCommit = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+    let saveHasLocked!: () => void;
+    const saveLocked = new Promise<void>((resolve) => {
+      saveHasLocked = resolve;
+    });
+    let productId: string | undefined;
+    const savePromise = db.transaction(async (tx) => {
+      await lockProductImageReference(imagePath, tx);
+      saveHasLocked();
+      const [saved] = await tx
+        .insert(productsTable)
+        .values({
+          vendorId: vendor.id,
+          name: "Image attached during cleanup",
+          category: "Textiles",
+          priceCents: 4800,
+          originalPriceCents: null,
+          imageUrl: imagePath,
+          sizes: ["One size"],
+          fabricType: "Cotton",
+          description: "A product save that overlaps image cleanup.",
+          inventory: 1,
+          status: "draft",
+        })
+        .returning({ id: productsTable.id });
+      productId = saved.id;
+      await saveMayCommit;
+    });
+    let cleanupPromise: Promise<void> | undefined;
+
+    try {
+      await saveLocked;
+      cleanupPromise = processPendingProductImageCleanups();
+
+      // Wait until the worker has claimed the retry. At this point it is
+      // blocked on the same advisory lock held by the uncommitted save.
+      const claimDeadline = Date.now() + 5_000;
+      while (Date.now() < claimDeadline) {
+        const [pending] = await db
+          .select({ nextAttemptAt: productImageCleanupTable.nextAttemptAt })
+          .from(productImageCleanupTable)
+          .where(eq(productImageCleanupTable.imagePath, imagePath));
+        if (pending && pending.nextAttemptAt.getTime() > Date.now()) {
+          break;
+        }
+        await new Promise<void>((resolve) => setTimeout(resolve, 10));
+      }
+      const [claimed] = await db
+        .select({ nextAttemptAt: productImageCleanupTable.nextAttemptAt })
+        .from(productImageCleanupTable)
+        .where(eq(productImageCleanupTable.imagePath, imagePath));
+      expect(claimed?.nextAttemptAt.getTime()).toBeGreaterThan(Date.now());
+      expect(deleteObject).not.toHaveBeenCalled();
+
+      releaseSave();
+      await Promise.all([savePromise, cleanupPromise]);
+      expect(deleteObject).not.toHaveBeenCalled();
+      const savedProductId = productId;
+      if (!savedProductId) {
+        throw new Error("Product save did not return an ID");
+      }
+      await expect(
+        db
+          .select({ imageUrl: productsTable.imageUrl })
+          .from(productsTable)
+          .where(eq(productsTable.id, savedProductId)),
+      ).resolves.toEqual([{ imageUrl: imagePath }]);
+      await expect(
+        db
+          .select()
+          .from(productImageCleanupTable)
+          .where(eq(productImageCleanupTable.imagePath, imagePath)),
+      ).resolves.toEqual([]);
+    } finally {
+      releaseSave();
+      await savePromise.catch(() => undefined);
+      await cleanupPromise?.catch(() => undefined);
+      deleteObject.mockRestore();
+      if (productId) {
+        await db.delete(productsTable).where(eq(productsTable.id, productId));
+      }
       await db
         .delete(productImageCleanupTable)
         .where(eq(productImageCleanupTable.imagePath, imagePath));

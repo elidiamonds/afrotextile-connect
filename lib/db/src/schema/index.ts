@@ -22,3 +22,5 @@ export * from "./products";
 export * from "./productHistory";
 export * from "./orders";
 export * from "./vendorReviewerAccessHistory";
+export * from "./vendorStorefrontHistory";
+export * from "./shopifyVendorProducts";

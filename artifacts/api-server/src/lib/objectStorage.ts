@@ -30,6 +30,43 @@ export class ObjectNotFoundError extends Error {
   }
 }
 
+export function isObjectNotFoundError(error: unknown): boolean {
+  if (error instanceof ObjectNotFoundError) {
+    return true;
+  }
+
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const providerError = error as {
+    code?: unknown;
+    status?: unknown;
+    statusCode?: unknown;
+    response?: {
+      status?: unknown;
+      statusCode?: unknown;
+    };
+    errors?: Array<{
+      reason?: unknown;
+    }>;
+  };
+  const statusCodes = [
+    providerError.code,
+    providerError.status,
+    providerError.statusCode,
+    providerError.response?.status,
+    providerError.response?.statusCode,
+  ];
+
+  return (
+    statusCodes.some((statusCode) => Number(statusCode) === 404) ||
+    providerError.errors?.some(
+      ({ reason }) => String(reason).toLowerCase() === "notfound",
+    ) === true
+  );
+}
+
 export class ObjectStorageService {
   getPrivateObjectDir(): string {
     const dir = process.env.PRIVATE_OBJECT_DIR || "";
@@ -90,7 +127,15 @@ export class ObjectStorageService {
 
     const { bucketName, objectName } = parseObjectPath(`${entityDir}${entityId}`);
     const objectFile = objectStorageClient.bucket(bucketName).file(objectName);
-    const [exists] = await objectFile.exists();
+    let exists: boolean;
+    try {
+      [exists] = await objectFile.exists();
+    } catch (error) {
+      if (isObjectNotFoundError(error)) {
+        throw new ObjectNotFoundError();
+      }
+      throw error;
+    }
     if (!exists) {
       throw new ObjectNotFoundError();
     }
@@ -130,7 +175,18 @@ export class ObjectStorageService {
   }
 
   async downloadObject(file: File): Promise<Response> {
-    const [metadata] = await file.getMetadata();
+    let metadata: {
+      contentType?: string;
+      size?: number | string;
+    };
+    try {
+      [metadata] = await file.getMetadata();
+    } catch (error) {
+      if (isObjectNotFoundError(error)) {
+        throw new ObjectNotFoundError();
+      }
+      throw error;
+    }
     const nodeStream = file.createReadStream();
     const webStream = Readable.toWeb(nodeStream) as ReadableStream;
     const headers: Record<string, string> = {

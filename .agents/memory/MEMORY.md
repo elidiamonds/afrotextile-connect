@@ -3,6 +3,7 @@
 - [Run-scoped database tests](run-scoped-database-tests.md) — tests that set DB_SCHEMA must dynamically import the database package after setting it.
 - [Expo web font gating](expo-web-font-gating.md) — keep native font gating, but let Expo web use a system fallback when font loading stalls or the package hook duplicates React.
 - [Clerk browser redirects](clerk-browser-redirects.md) — authenticated Clerk tests may leave /sign-up immediately; assert the real signed-in destination instead of an intermediate screen.
+- [Clerk browser session identity](clerk-browser-session-identity.md) — sign out before switching fixtures and wait for the expected Clerk user ID to prevent stale-role assertions.
 - [PostgreSQL test schema names](postgresql-test-schema-names.md) — run-scoped schema names must stay within PostgreSQL’s 63-byte identifier limit, including timestamps and UUIDs.
 - [Drizzle test schema namespaces](drizzle-test-schema-namespaces.md) — schemaFilter alone does not namespace unqualified pgTable definitions.
 - [Vite artifact build environment](vite-artifact-build-environment.md) — direct production builds need the workflow-provided PORT and BASE_PATH values.
@@ -11,3 +12,24 @@
 - [Playwright database pool lifecycle](playwright-database-pool-lifecycle.md) — shared-worker browser specs must not close the singleton DB pool during per-file teardown.
 - [Afrotextile browser workflow dependencies](afrotextile-browser-workflow-dependencies.md) — browser coverage needs both the web and shared API workflows running before fixture-driven checks.
 - [GitHub workspace sync](github-workspace-sync.md) — direct origin pushes lack credentials; sync through the connected GitHub Git Data API without forcing main.
+- [Reviewer browser fixtures](reviewer-browser-fixtures.md) — use run-scoped searches and avoid assuming Clerk’s unfiltered user order or total count.
+- [Page-exit request methods](page-exit-request-methods.md) — use keepalive fetch when cleanup must retain DELETE; sendBeacon always changes the request to POST.
+- [Administrator bootstrap](administrator-bootstrap.md) — the configured admin email is an explicit allowlist entry alongside Clerk metadata roles.
+- [Query retry limits](query-retry-limits.md) — custom React Query retry callbacks must keep an explicit finite retry budget.
+- [Static published smoke checks](static-published-smoke-checks.md) — static deployments need an explicit post-publish URL check because they have no post-deploy command hook.
+- [Static route smoke fixtures](static-route-smoke-fixtures.md) — static previews rewrite API paths to HTML, so API-driven nested pages need a minimal browser fixture to render the shell.
+- [Expo native prebuild isolation](expo-native-prebuild-isolation.md) — run iOS prebuild from a staged copy with CI enabled so Expo does not mutate the app or prompt about git state.
+- [Expo native launch fingerprints](expo-native-launch-fingerprints.md) — native iOS PNG bytes can change with Expo tooling while approved source artwork stays unchanged.
+- [Optimistic product timestamp precision](optimistic-product-timestamps.md) — compare browser concurrency timestamps at API precision because PostgreSQL may retain finer timestamp values.
+- [Nested database constraint errors](nested-database-constraint-errors.md) — idempotent replay checks must inspect wrapped causes, not only the top-level database error.
+- [Product image cleanup locking](product-image-cleanup-locking.md) — serialize managed image saves and storage cleanup with a transaction-scoped PostgreSQL advisory lock.
+- [Legacy schema cleanup concurrency](legacy-schema-cleanup-concurrency.md) — serialize reviewed schema drops and recheck names so overlapping runs report already-removed schemas clearly.
+- [Cleanup retry identifiers](cleanup-retry-identifiers.md) — admin cleanup actions use opaque server-derived identifiers instead of exposing managed object paths.
+- [Mobile hero text clarity](mobile-hero-text-clarity.md) — verify reported blur at the target viewport; image bleed and thin smoothing can look like a text filter.
+- [Dashboard retry accessibility](dashboard-retry-accessibility.md) — keep the outage panel mounted while a failed query is being retried so busy state stays perceivable.
+- [Authenticated Playwright interception](playwright-route-auth.md) — use route.continue for Clerk-authenticated payload mutation; server-side route.fetch can lose the browser session.
+- [Temporary product image lifecycle](temporary-product-image-lifecycle.md) — track unsaved object paths before upload completion and clean every path on page lifecycle events.
+- [Reviewer access concurrency](reviewer-access-concurrency.md) — serialize each target’s Clerk permission write and audit insert under one database advisory lock.
+- [Browser/API test state boundaries](browser-api-test-state-boundaries.md) — compare browser-visible data when the running API may use a different DB schema than the test process.
+- [Shopify Admin schema drift](shopify-admin-schema.md) — verify catalog mutation inputs and errors against the connected store's live schema, not generic examples.
+- [Shopify inventory location scope](shopify-inventory-scope.md) — never write a variant-wide aggregate into one location; edit and verify the same location's quantity.

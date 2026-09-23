@@ -16,11 +16,13 @@ import {
   curatedTrendSignals,
   dedupeTrendSignals,
   getNigerianProduct,
+  NIGERIAN_FASHION_PINTEREST_BOARD,
   TREND_DESK_STORAGE_KEY,
   TrendDecision,
   TrendSignal,
   TrendSignalStatus,
 } from "@/data/trendDesk";
+import { PinterestBoardEmbed } from "@/components/PinterestBoardEmbed";
 
 type DeskFilter = TrendSignalStatus;
 type Decisions = Record<string, TrendDecision>;
@@ -141,9 +143,27 @@ const TrendDeskPage = () => {
                 Refreshed {lagosDateLabel()}
               </p>
               <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                A considered fallback while the Pinterest signal is unavailable.
+              A considered editorial fallback, with an official Pinterest board for visual reference.
               </p>
             </div>
+          </div>
+        </section>
+
+        <section className="mt-8 border border-border bg-card p-5 sm:p-7" aria-labelledby="pinterest-trends-heading">
+          <div className="max-w-2xl">
+            <p className="flex items-center gap-2 text-[10px] font-sans uppercase tracking-[0.25em] text-primary">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#d60023]" />
+              Pinterest inspiration
+            </p>
+            <h2 id="pinterest-trends-heading" className="mt-2 font-serif text-2xl text-foreground sm:text-3xl">
+              Nigerian Fashion Trends
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Discover Nigerian fashion inspiration and trends
+            </p>
+          </div>
+          <div className="mt-6 overflow-hidden border border-border bg-background p-2 sm:p-4">
+            <PinterestBoardEmbed boardUrl={NIGERIAN_FASHION_PINTEREST_BOARD} />
           </div>
         </section>
 
@@ -203,7 +223,7 @@ const TrendDeskPage = () => {
         <footer className="mt-12 flex flex-col gap-4 border-t border-border pt-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <p className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-            Source: curated fallback / Pinterest unavailable
+                 Source: curated desk / live Pinterest searches
           </p>
           <button
             type="button"

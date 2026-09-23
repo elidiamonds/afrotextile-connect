@@ -8,7 +8,6 @@ import {
   Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { vendors, products } from "@/data/mock";
 import ProductCard from "@/components/ProductCard";
 import {
   getGetStorefrontQueryKey,
@@ -18,7 +17,6 @@ import { mapApiProduct } from "@/lib/product-mapper";
 
 const VendorPage = () => {
   const { id } = useParams<{ id: string }>();
-  const legacyVendor = vendors.find((v) => v.id === id);
   const {
     data: storedVendor,
     isLoading,
@@ -40,14 +38,10 @@ const VendorPage = () => {
         rating: 0,
         verified: storedVendor.status === "approved",
       }
-    : legacyVendor
-      ? { ...legacyVendor, verified: true }
       : undefined;
-  const vendorProducts = storedVendor
-    ? (storedVendor.products ?? []).map(mapApiProduct)
-    : products.filter((p) => p.vendorId === id);
+  const vendorProducts = (storedVendor?.products ?? []).map(mapApiProduct);
 
-  if (isLoading && !legacyVendor) {
+  if (isLoading) {
     return (
       <div className="min-h-screen pt-32 text-center text-muted-foreground">
         Loading storefront…
@@ -55,7 +49,7 @@ const VendorPage = () => {
     );
   }
 
-  if (!vendor || (isError && !legacyVendor)) {
+  if (isError || !vendor) {
     return (
       <div className="min-h-screen pt-24 flex items-center justify-center">
         <div className="text-center">

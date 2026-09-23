@@ -2,24 +2,33 @@ import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
 import { Heart, ShoppingBag, Star, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { products } from "@/data/mock";
-import { useGetProduct } from "@workspace/api-client-react";
-import { mapApiProduct } from "@/lib/product-mapper";
+import { useQuery } from "@tanstack/react-query";
+import { formatMoney, getShopifyProduct, mapShopifyProduct, variantForSize } from "@/lib/shopify-commerce";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
-import ProductCard from "@/components/ProductCard";
 import { useToast } from "@/hooks/use-toast";
 
 const ProductPage = () => {
   const { id } = useParams<{ id: string }>();
-  const { data: apiProduct } = useGetProduct(id ?? "");
-  const product = apiProduct
-    ? mapApiProduct(apiProduct)
-    : products.find((p) => p.id === id);
+  const { data: shopifyProduct, isLoading } = useQuery({
+    queryKey: ["shopify-product", id],
+    queryFn: () => getShopifyProduct(id ?? ""),
+    enabled: Boolean(id),
+    staleTime: 30_000,
+  });
+  const product = shopifyProduct ? mapShopifyProduct(shopifyProduct) : undefined;
   const [selectedSize, setSelectedSize] = useState<string>("");
   const { addItem } = useCart();
   const { toggleItem, isWished } = useWishlist();
   const { toast } = useToast();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen pt-24 flex items-center justify-center">
+        <p className="text-muted-foreground font-sans">Loading product…</p>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -30,14 +39,18 @@ const ProductPage = () => {
   }
 
   const wished = isWished(product.id);
-  const related = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
 
   const handleAddToCart = () => {
     if (!selectedSize) {
       toast({ title: "Please select a size", variant: "destructive" });
       return;
     }
-    addItem(product, selectedSize);
+    const variant = variantForSize(product, selectedSize);
+    if (!variant?.availableForSale) {
+      toast({ title: "This option is unavailable", variant: "destructive" });
+      return;
+    }
+    addItem(product, selectedSize, variant.id);
     toast({ title: "Added to bag", description: `${product.name} (${selectedSize})` });
   };
 
@@ -62,9 +75,9 @@ const ProductPage = () => {
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="text-2xl font-sans font-bold text-primary">${product.price}</span>
+              <span className="text-2xl font-sans font-bold text-primary">{formatMoney(product.price, product.currencyCode)}</span>
               {product.originalPrice && (
-                <span className="text-lg font-sans text-muted-foreground line-through">${product.originalPrice}</span>
+                <span className="text-lg font-sans text-muted-foreground line-through">{formatMoney(product.originalPrice, product.currencyCode)}</span>
               )}
             </div>
 
@@ -125,14 +138,6 @@ const ProductPage = () => {
         </div>
 
         {/* Related */}
-        {related.length > 0 && (
-          <section className="mt-24">
-            <h2 className="text-2xl font-serif font-bold text-foreground mb-8">You May Also Like</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {related.map((p) => <ProductCard key={p.id} product={p} />)}
-            </div>
-          </section>
-        )}
       </div>
     </div>
   );

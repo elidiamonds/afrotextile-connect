@@ -28,6 +28,7 @@ import {
   UpdateOrderItemStatusResponse,
 } from "@workspace/api-zod";
 import { toProductImageUrl } from "./products";
+import { hasAdministratorAccess } from "../lib/adminAccess";
 
 const router: IRouter = Router();
 
@@ -45,7 +46,7 @@ function authenticatedUserId(req: Request): string | null {
 
 async function isAdmin(userId: string): Promise<boolean> {
   const user = await clerkClient.users.getUser(userId);
-  return user.publicMetadata.role === "admin";
+  return hasAdministratorAccess(user);
 }
 
 async function canManageVendor(

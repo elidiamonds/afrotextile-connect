@@ -1,0 +1,74 @@
+uploads = []
+
+[[generated]]
+id = "foEQMC2xIuE2TZFjDfxyO"
+uri = "file://artifacts/afrotextile-mobile/assets/images/icon.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "_o7ohEG45wKsXSLr2Ck9a"
+uri = "file://artifacts/afrotextile-promo/public/images/texture-pattern.png"
+type = "image"
+title = "Abstract African textile pattern"
+
+[[generated]]
+id = "Bsn6Z8bEQeIpYj8oY4mrb"
+uri = "file://artifacts/afrotextile-promo/public/images/texture-woven.png"
+type = "image"
+title = "Rich woven fabric close-up"
+
+[[generated]]
+id = "v_-LkcCDbGmoH6qh-4qcj"
+uri = "file://artifacts/afrotextile-pitch/public/cover-texture.png"
+type = "image"
+title = "generated_image"
+
+[[outputs]]
+id = "9VyVt5FBifEfIQ_MFWcfY"
+uri = "file://artifacts/afrotextile-promo/public/audio/bg_music.mp3"
+type = "audio"
+title = "afrotextile promo music 35s"
+logical_id = "0293f033-c0e9-43b7-97ae-8c06df2670db"
+
+[[outputs]]
+id = "Txs6B95JkAvR1E9peBS7i"
+uri = "file://attached_assets/brand_marks/threaded-a-2.svg"
+type = "image"
+title = "Afrotextile Threaded A — Primary Mark"
+description = "Selected geometric woven A mark for the Afrotextile identity system, supplied as an editable SVG."
+logical_id = "08455f6b-de1d-4808-b47d-1f89a97f8543"
+content_hash = "sha256:48186b68bed2349726e93e56421823c5e1c907b156e1bd499605baae46eb07a3"
+size = 551
+mtime_ms = 1789108822501
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:ae88575b-a031-4de6-8998-5962b68f9cca/08455f6b-de1d-4808-b47d-1f89a97f8543/4e2a08cc-0026-4306-8388-ce34698cdd5b"
+storage_version_token = "1789108989076612"
+content_type = "image/svg+xml"
+
+[[outputs]]
+id = "XzjISNqG9d8dOwk3qevGe"
+uri = "file://attached_assets/brand_marks/threaded-a-1.svg"
+type = "image"
+title = "Afrotextile Threaded A — Open Ribbon Candidate"
+description = "Supporting open-ribbon logo candidate for editorial and flexible applications."
+logical_id = "3c680060-be72-4b39-a3b3-6b4d760dc79f"
+content_hash = "sha256:82155eaa17ac2844d808f3f2ce709b5a1e3570a1ff1a167e824c1235ba247b46"
+size = 614
+mtime_ms = 1789108821996
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:ae88575b-a031-4de6-8998-5962b68f9cca/3c680060-be72-4b39-a3b3-6b4d760dc79f/5a3b33bf-bbc1-4903-ac4a-408be60e2d48"
+storage_version_token = "1789108989652990"
+content_type = "image/svg+xml"
+
+[[outputs]]
+id = "NN6W01oqZ0I80FR1dZXPG"
+uri = "file://attached_assets/brand_marks/threaded-a-3.svg"
+type = "image"
+title = "Afrotextile Threaded A — App Mark Candidate"
+description = "Compact rounded-square mark candidate for app, avatar, and favicon contexts."
+logical_id = "54e32a70-3ed6-47ad-82ac-3f6726aa6a21"
+content_hash = "sha256:079c977c01d83ca1c096f8d23cb83dfb1a0b7fb5dc28e6db62412a20793b4dd9"
+size = 682
+mtime_ms = 1789108824113
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:ae88575b-a031-4de6-8998-5962b68f9cca/54e32a70-3ed6-47ad-82ac-3f6726aa6a21/705ae7cc-3e8d-46ca-9f30-4f640279dedb"
+storage_version_token = "1789108990178129"
+content_type = "image/svg+xml"

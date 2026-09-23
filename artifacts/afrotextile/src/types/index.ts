@@ -16,6 +16,21 @@ export interface Product {
   inventory?: number;
   isNew?: boolean;
   isTrending?: boolean;
+  commerceSource?: "shopify" | "marketplace" | "demo";
+  shopifyProductId?: string;
+  currencyCode?: string;
+  variants?: ProductVariant[];
+}
+
+export interface ProductVariant {
+  id: string;
+  title: string;
+  price: number;
+  currencyCode: string;
+  availableForSale: boolean;
+  quantityAvailable?: number;
+  options: Array<{ name: string; value: string }>;
+  image?: string;
 }
 
 export interface Vendor {
@@ -26,10 +41,12 @@ export interface Vendor {
   location: string;
   productCount: number;
   rating: number;
+  isDemo?: boolean;
 }
 
 export interface CartItem {
   product: Product;
   quantity: number;
   size: string;
+  merchandiseId: string;
 }

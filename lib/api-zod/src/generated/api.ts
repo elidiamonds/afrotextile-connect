@@ -147,7 +147,28 @@ export const ListVendorReviewersResponse = zod.object({
 /**
  * @summary List the vendor reviewer access audit history
  */
-export const ListVendorReviewerAccessHistoryResponseItem = zod.object({
+export const listVendorReviewerAccessHistoryQueryPageDefault = 1;
+export const listVendorReviewerAccessHistoryQueryPageMax = 10000;
+
+export const listVendorReviewerAccessHistoryQueryLimitDefault = 25;
+export const listVendorReviewerAccessHistoryQueryLimitMax = 50;
+
+
+
+export const ListVendorReviewerAccessHistoryQueryParams = zod.object({
+  "page": zod.coerce.number().min(1).max(listVendorReviewerAccessHistoryQueryPageMax).default(listVendorReviewerAccessHistoryQueryPageDefault).describe('One-based page number, ordered newest first'),
+  "limit": zod.coerce.number().min(1).max(listVendorReviewerAccessHistoryQueryLimitMax).default(listVendorReviewerAccessHistoryQueryLimitDefault).describe('Number of audit entries to return per page')
+})
+
+
+export const listVendorReviewerAccessHistoryResponseLimitMax = 50;
+
+export const listVendorReviewerAccessHistoryResponseTotalCountMin = 0;
+
+
+
+export const ListVendorReviewerAccessHistoryResponse = zod.object({
+  "items": zod.array(zod.object({
   "id": zod.string(),
   "targetUserId": zod.string(),
   "actorUserId": zod.string(),
@@ -161,8 +182,65 @@ export const ListVendorReviewerAccessHistoryResponseItem = zod.object({
 }),
   "action": zod.enum(['grant', 'revoke']),
   "changedAt": zod.coerce.date()
+})),
+  "page": zod.number().min(1),
+  "limit": zod.number().min(1).max(listVendorReviewerAccessHistoryResponseLimitMax),
+  "totalCount": zod.number().min(listVendorReviewerAccessHistoryResponseTotalCountMin),
+  "hasNextPage": zod.boolean()
 })
-export const ListVendorReviewerAccessHistoryResponse = zod.array(ListVendorReviewerAccessHistoryResponseItem)
+
+
+/**
+ * Returns retry counts and sanitized cleanup errors for administrators.
+ * @summary Get pending product image cleanup status
+ */
+export const getProductImageCleanupStatusResponsePendingCountMin = 0;
+
+export const getProductImageCleanupStatusResponseOldestRetryAgeSecondsMin = 0;
+
+export const getProductImageCleanupStatusResponseFailuresItemIdMin = 64;
+export const getProductImageCleanupStatusResponseFailuresItemIdMax = 64;
+
+
+export const getProductImageCleanupStatusResponseFailuresItemIdRegExp = new RegExp('^[a-f0-9]{64}$');
+
+export const getProductImageCleanupStatusResponseFailuresItemLastErrorMax = 500;
+
+
+
+export const GetProductImageCleanupStatusResponse = zod.object({
+  "pendingCount": zod.number().min(getProductImageCleanupStatusResponsePendingCountMin),
+  "oldestRetryAt": zod.coerce.date().nullable(),
+  "oldestRetryAgeSeconds": zod.number().min(getProductImageCleanupStatusResponseOldestRetryAgeSecondsMin).nullable(),
+  "failures": zod.array(zod.object({
+  "id": zod.string().min(getProductImageCleanupStatusResponseFailuresItemIdMin).max(getProductImageCleanupStatusResponseFailuresItemIdMax).regex(getProductImageCleanupStatusResponseFailuresItemIdRegExp),
+  "attempts": zod.number().min(1),
+  "nextAttemptAt": zod.coerce.date(),
+  "lastAttemptAt": zod.coerce.date().nullable(),
+  "lastError": zod.string().max(getProductImageCleanupStatusResponseFailuresItemLastErrorMax).nullable(),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Retry one failed product image cleanup
+ */
+export const retryProductImageCleanupPathCleanupIdMin = 64;
+export const retryProductImageCleanupPathCleanupIdMax = 64;
+
+
+export const retryProductImageCleanupPathCleanupIdRegExp = new RegExp('^[a-f0-9]{64}$');
+
+
+export const RetryProductImageCleanupParams = zod.object({
+  "cleanupId": zod.coerce.string().min(retryProductImageCleanupPathCleanupIdMin).max(retryProductImageCleanupPathCleanupIdMax).regex(retryProductImageCleanupPathCleanupIdRegExp)
+})
+
+export const RetryProductImageCleanupResponse = zod.object({
+  "status": zod.enum(['cleaned', 'already-resolved', 'failed']),
+  "message": zod.string()
+})
 
 
 /**
@@ -299,6 +377,30 @@ export const UpdateVendorResponse = zod.object({
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
+
+
+/**
+ * @summary List the change history for a vendor storefront
+ */
+
+
+
+export const ListVendorStorefrontHistoryParams = zod.object({
+  "id": zod.coerce.string().min(1)
+})
+
+export const ListVendorStorefrontHistoryResponseItem = zod.object({
+  "id": zod.string(),
+  "vendorId": zod.string(),
+  "actorUserId": zod.string(),
+  "action": zod.enum(['edited']),
+  "changes": zod.record(zod.string(), zod.object({
+  "from": zod.unknown(),
+  "to": zod.unknown()
+})),
+  "changedAt": zod.coerce.date()
+})
+export const ListVendorStorefrontHistoryResponse = zod.array(ListVendorStorefrontHistoryResponseItem)
 
 
 /**

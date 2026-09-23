@@ -1,7 +1,7 @@
 import { Readable } from "stream";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
-  ObjectNotFoundError,
+  isObjectNotFoundError,
   objectStorageService,
 } from "../lib/objectStorage";
 
@@ -24,7 +24,7 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
       res.end();
     }
   } catch (error) {
-    if (error instanceof ObjectNotFoundError) {
+    if (isObjectNotFoundError(error)) {
       res.status(404).json({ error: "Object not found" });
       return;
     }

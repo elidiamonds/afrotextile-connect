@@ -96,6 +96,88 @@ export interface VendorReviewerAccessHistoryEntry {
   changedAt: string;
 }
 
+export interface VendorReviewerAccessHistoryPage {
+  items: VendorReviewerAccessHistoryEntry[];
+  /** @minimum 1 */
+  page: number;
+  /**
+     * @minimum 1
+     * @maximum 50
+     */
+  limit: number;
+  /** @minimum 0 */
+  totalCount: number;
+  hasNextPage: boolean;
+}
+
+export type VendorStorefrontHistoryEntryAction = typeof VendorStorefrontHistoryEntryAction[keyof typeof VendorStorefrontHistoryEntryAction];
+
+
+export const VendorStorefrontHistoryEntryAction = {
+  edited: 'edited',
+} as const;
+
+export type VendorStorefrontHistoryEntryChanges = {[key: string]: {
+  from: unknown;
+  to: unknown;
+}};
+
+export interface VendorStorefrontHistoryEntry {
+  id: string;
+  vendorId: string;
+  actorUserId: string;
+  action: VendorStorefrontHistoryEntryAction;
+  changes: VendorStorefrontHistoryEntryChanges;
+  changedAt: string;
+}
+
+export interface ProductImageCleanupFailure {
+  /**
+     * @minLength 64
+     * @maxLength 64
+     * @pattern ^[a-f0-9]{64}$
+     */
+  id: string;
+  /** @minimum 1 */
+  attempts: number;
+  nextAttemptAt: string;
+  /** @nullable */
+  lastAttemptAt: string | null;
+  /**
+     * @maxLength 500
+     * @nullable
+     */
+  lastError: string | null;
+  createdAt: string;
+}
+
+export interface ProductImageCleanupStatus {
+  /** @minimum 0 */
+  pendingCount: number;
+  /** @nullable */
+  oldestRetryAt: string | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  oldestRetryAgeSeconds: number | null;
+  failures: ProductImageCleanupFailure[];
+}
+
+export type ProductImageCleanupRetryResultStatus = typeof ProductImageCleanupRetryResultStatus[keyof typeof ProductImageCleanupRetryResultStatus];
+
+
+export const ProductImageCleanupRetryResultStatus = {
+  cleaned: 'cleaned',
+  'already-resolved': 'already-resolved',
+  failed: 'failed',
+} as const;
+
+export interface ProductImageCleanupRetryResult {
+  status: ProductImageCleanupRetryResultStatus;
+  message: string;
+}
+
 export type VendorInputPlan = typeof VendorInputPlan[keyof typeof VendorInputPlan];
 
 
@@ -478,6 +560,13 @@ export interface VendorUpdate {
   logoUrl?: string | null;
 }
 
+export type StorefrontValidationErrorFieldErrors = {[key: string]: string};
+
+export interface StorefrontValidationError {
+  error: string;
+  fieldErrors: StorefrontValidationErrorFieldErrors;
+}
+
 export type VendorStatusUpdateStatus = typeof VendorStatusUpdateStatus[keyof typeof VendorStatusUpdateStatus];
 
 
@@ -513,6 +602,21 @@ search?: string;
 page?: number;
 /**
  * Number of users to return per page
+ * @minimum 1
+ * @maximum 50
+ */
+limit?: number;
+};
+
+export type ListVendorReviewerAccessHistoryParams = {
+/**
+ * One-based page number, ordered newest first
+ * @minimum 1
+ * @maximum 10000
+ */
+page?: number;
+/**
+ * Number of audit entries to return per page
  * @minimum 1
  * @maximum 50
  */
